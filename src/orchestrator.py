@@ -1,10 +1,11 @@
 import os
 import time
 from datetime import datetime, timezone
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from src.schemas import (
     TelemetryEvent, FailureClassification, ChannelType,
-    RecoveryAction, RecoveryState, AuditLedgerEntry, DispatchRequest
+    RecoveryAction, RecoveryState, AuditLedgerEntry, DispatchRequest,
+    ExecutionMode, AgenticDecisionTrace, P2PStatus
 )
 from src.classifier import TelemetryClassifier
 from src.ledger import AuditLedger
@@ -18,7 +19,33 @@ class RevPulseOrchestrator:
         self.rzp_client = RazorpayClientWrapper()
         self.dispatcher = WhatsAppDispatcher()
         self.MAX_ATTEMPTS = 3
+        self.mode = ExecutionMode.AGENTIC_AUTONOMOUS
         self.state_store: Dict[str, Dict] = {}
+        self.pending_operator_queue: Dict[str, Dict[str, Any]] = {}
+
+    def set_execution_mode(self, mode: ExecutionMode) -> None:
+        self.mode = mode
+
+    def generate_agentic_trace(
+        self,
+        event: TelemetryEvent,
+        classification: FailureClassification,
+        channel: ChannelType,
+        attempt: int
+    ) -> AgenticDecisionTrace:
+        bank_status = self.classifier.bank_cbs_health.get(event.issuing_bank or "", {}).get("status", "HEALTHY")
+        auto_exec = self.mode == ExecutionMode.AGENTIC_AUTONOMOUS
+        
+        return AgenticDecisionTrace(
+            agent_id="RevPulse-Agent-01",
+            telemetry_audit=f"Evaluated telemetry for {event.entity_id} ({event.event_type}). Amount: INR {event.gross_amount_paise/100:,.2f}.",
+            cbs_diagnosis=f"Bank {event.issuing_bank or 'UNKNOWN'} status: {bank_status}. Classified error code '{event.raw_error_code}' as {classification.value}.",
+            fatigue_reasoning=f"Attempt {attempt}/{self.MAX_ATTEMPTS}. Evaluated expected net yield. Selected optimal channel {channel.value}.",
+            recommended_channel=channel,
+            confidence_score=round(max(0.70, 0.98 - (attempt - 1) * 0.10), 2),
+            auto_executed=auto_exec,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
 
     def is_trai_compliant_time(self, epoch_time: int) -> bool:
         enforce = os.getenv("TRAI_ENFORCE_TIME_GATE", "true").lower() in ["true", "1", "yes"]
@@ -28,6 +55,45 @@ class RevPulseOrchestrator:
         ist_hour = (gm.tm_hour + 5 + (gm.tm_min + 30) // 60) % 24
         return 8 <= ist_hour < 19
 
+    def register_ptp_commitment(self, entity_id: str, promised_timestamp_epoch: int, amount_paise: Optional[int] = None, note: Optional[str] = None) -> Dict[str, Any]:
+        state = self.state_store.get(entity_id, {
+            "attempts": 0,
+            "status": RecoveryState.DETECTED,
+            "recovered_paise": 0
+        })
+        state["status"] = RecoveryState.PROMISE_TO_PAY_PENDING
+        state["ptp_epoch"] = promised_timestamp_epoch
+        state["ptp_amount_paise"] = amount_paise or 150000
+        state["ptp_note"] = note or "Customer promised payment on salary date"
+        state["p2p_status"] = P2PStatus.ACTIVE_PROMISE.value
+        self.state_store[entity_id] = state
+        return {
+            "entity_id": entity_id,
+            "status": RecoveryState.PROMISE_TO_PAY_PENDING.value,
+            "p2p_status": P2PStatus.ACTIVE_PROMISE.value,
+            "promised_timestamp_epoch": promised_timestamp_epoch,
+            "note": state["ptp_note"]
+        }
+
+    def evaluate_p2p_compliance(self, entity_id: str, current_epoch: Optional[int] = None, is_paid: bool = False) -> str:
+        state = self.state_store.get(entity_id)
+        if not state or state.get("status") != RecoveryState.PROMISE_TO_PAY_PENDING:
+            return "NO_ACTIVE_PROMISE"
+
+        now = current_epoch or int(time.time())
+        ptp_epoch = state.get("ptp_epoch", 0)
+
+        if is_paid:
+            state["p2p_status"] = P2PStatus.PROMISE_HONORED.value
+            state["status"] = RecoveryState.RECOVERED
+            return "PROMISE_HONORED"
+
+        if now <= ptp_epoch + 86400:
+            return "PROMISE_WITHIN_GRACE_PERIOD"
+
+        state["p2p_status"] = P2PStatus.PROMISE_BROKEN.value
+        return "PROMISE_BROKEN_ESCALATE"
+
     def process_event(self, event: TelemetryEvent) -> Optional[RecoveryAction]:
         entity_id = event.entity_id
         current_state = self.state_store.get(entity_id, {
@@ -35,6 +101,14 @@ class RevPulseOrchestrator:
             "status": RecoveryState.DETECTED,
             "recovered_paise": 0
         })
+
+        now = int(time.time())
+        if current_state.get("status") == RecoveryState.PROMISE_TO_PAY_PENDING:
+            p2p_eval = self.evaluate_p2p_compliance(entity_id, now)
+            if p2p_eval == "PROMISE_WITHIN_GRACE_PERIOD":
+                return None
+            elif p2p_eval == "PROMISE_BROKEN_ESCALATE":
+                current_state["attempts"] = 2
 
         if current_state["attempts"] >= self.MAX_ATTEMPTS:
             current_state["status"] = RecoveryState.HALTED_MAX_ATTEMPTS
@@ -48,9 +122,26 @@ class RevPulseOrchestrator:
             return None
 
         attempt = current_state["attempts"] + 1
-        now = int(time.time())
 
-        if classification == FailureClassification.TRANSIENT_NETWORK_DOWN:
+        channel_costs = {
+            ChannelType.SILENT_API_RETRY: 0,
+            ChannelType.WHATSAPP_HINGLISH: 60,
+            ChannelType.VOICE_IVR_NUDGE: 150,
+            ChannelType.HUMAN_ESCALATION: 500
+        }
+        success_prob = max(0.05, 0.75 - (attempt - 1) * 0.25)
+        expected_recovery_paise = int(event.gross_amount_paise * success_prob)
+        fatigue_cost_paise = 100 * attempt
+        est_channel = ChannelType.SILENT_API_RETRY if (classification == FailureClassification.TRANSIENT_NETWORK_DOWN and attempt == 1) else (ChannelType.VOICE_IVR_NUDGE if attempt == 3 else ChannelType.WHATSAPP_HINGLISH)
+        est_channel_cost = channel_costs.get(est_channel, 60)
+
+        expected_net_return = expected_recovery_paise - (est_channel_cost + fatigue_cost_paise)
+        if expected_net_return <= 0:
+            current_state["status"] = RecoveryState.HALTED_MDP_STOPPING_RULE
+            self.state_store[entity_id] = current_state
+            return None
+
+        if classification == FailureClassification.TRANSIENT_NETWORK_DOWN and attempt == 1:
             scheduled_time = now + (45 * 60)
             channel = ChannelType.SILENT_API_RETRY
             payload = {
@@ -59,6 +150,18 @@ class RevPulseOrchestrator:
                 "subscription_id": entity_id
             }
             reason = "Bank core systems degraded; silent retry scheduled post-recovery (+45m)."
+
+        elif attempt == 3:
+            scheduled_time = now + (30 * 60)
+            channel = ChannelType.VOICE_IVR_NUDGE
+            amount_inr = event.gross_amount_paise / 100
+            plink = self.rzp_client.create_payment_link(entity_id, event.gross_amount_paise, "Escalated Voice Nudge")
+            payload = {
+                "message": f"Namaste! Razorpay Automated Voice Assistant calling regarding pending payment of Rs. {amount_inr:,.2f}. Press 1 to receive payment link.",
+                "payment_url": plink["short_url"],
+                "expire_hours": 24
+            }
+            reason = "Escalated intervention via interactive Hinglish Voice IVR Nudge."
 
         elif classification == FailureClassification.TRANSIENT_BALANCE_LOW:
             scheduled_time = now + (24 * 3600)
@@ -99,19 +202,70 @@ class RevPulseOrchestrator:
         if channel != ChannelType.SILENT_API_RETRY and not self.is_trai_compliant_time(scheduled_time):
             scheduled_time += (12 * 3600)
 
-        current_state["attempts"] = attempt
-        current_state["status"] = RecoveryState.SCHEDULED
-        self.state_store[entity_id] = current_state
+        trace = self.generate_agentic_trace(event, classification, channel, attempt)
 
-        return RecoveryAction(
+        action = RecoveryAction(
             action_id=f"act_{entity_id}_{attempt}",
             entity_id=entity_id,
             target_channel=channel,
             scheduled_timestamp_epoch=scheduled_time,
             payload=payload,
             attempt_index=attempt,
-            reason_code=reason
+            reason_code=reason,
+            policy_approved=(self.mode == ExecutionMode.AGENTIC_AUTONOMOUS)
         )
+
+        current_state["attempts"] = attempt
+        current_state["last_trace"] = trace.model_dump()
+
+        if self.mode == ExecutionMode.AGENTIC_AUTONOMOUS:
+            phone = event.customer_phone or os.getenv("DEMO_TARGET_PHONE", "whatsapp:+919876543210")
+            disp_res = self.dispatcher.dispatch(DispatchRequest(
+                phone_number=phone,
+                message=payload.get("message", "Recovery notification"),
+                payment_url=payload.get("payment_url"),
+                channel=channel
+            ))
+            current_state["status"] = RecoveryState.DISPATCHED
+            current_state["dispatch_result"] = disp_res
+        else:
+            current_state["status"] = RecoveryState.SCHEDULED
+            self.pending_operator_queue[entity_id] = {
+                "action": action.model_dump(),
+                "event": event.model_dump(),
+                "trace": trace.model_dump()
+            }
+
+        self.state_store[entity_id] = current_state
+        return action
+
+    def approve_and_dispatch(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        item = self.pending_operator_queue.pop(entity_id, None)
+        if not item:
+            return None
+
+        act_dict = item["action"]
+        evt_dict = item["event"]
+        phone = evt_dict.get("customer_phone") or os.getenv("DEMO_TARGET_PHONE", "whatsapp:+919876543210")
+        channel = ChannelType(act_dict["target_channel"])
+
+        disp_res = self.dispatcher.dispatch(DispatchRequest(
+            phone_number=phone,
+            message=act_dict["payload"].get("message", "Recovery notification"),
+            payment_url=act_dict["payload"].get("payment_url"),
+            channel=channel
+        ))
+
+        state = self.state_store.get(entity_id, {"attempts": 1})
+        state["status"] = RecoveryState.DISPATCHED
+        state["dispatch_result"] = disp_res
+        self.state_store[entity_id] = state
+
+        return {
+            "entity_id": entity_id,
+            "status": "APPROVED_AND_DISPATCHED",
+            "dispatch": disp_res
+        }
 
     def execute_mock_batch(self, events: List[TelemetryEvent]) -> List[AuditLedgerEntry]:
         self.ledger = AuditLedger()
@@ -134,15 +288,20 @@ class RevPulseOrchestrator:
                         recovered_paise = event.gross_amount_paise
                     elif event.event_type == "invoice.overdue" and (int(event.entity_id[-1], 16) % 3 != 0):
                         recovered_paise = event.gross_amount_paise
+                elif action.target_channel == ChannelType.VOICE_IVR_NUDGE:
+                    cost_paise = 150
+                    if (int(event.entity_id[-1], 16) % 3 == 0):
+                        recovered_paise = event.gross_amount_paise
+                elif action.target_channel == ChannelType.HUMAN_ESCALATION:
+                    cost_paise = 500
 
-                if action.target_channel == ChannelType.WHATSAPP_HINGLISH and "message" in action.payload:
-                    phone = event.customer_phone or os.getenv("DEMO_TARGET_PHONE", "whatsapp:+919876543210")
-                    self.dispatcher.dispatch(DispatchRequest(
-                        phone_number=phone,
-                        message=action.payload["message"],
-                        payment_url=action.payload.get("payment_url"),
-                        channel=action.target_channel
-                    ))
+                phone = event.customer_phone or os.getenv("DEMO_TARGET_PHONE", "whatsapp:+919876543210")
+                self.dispatcher.dispatch(DispatchRequest(
+                    phone_number=phone,
+                    message=action.payload.get("message", "Recovery notification"),
+                    payment_url=action.payload.get("payment_url"),
+                    channel=action.target_channel
+                ))
 
             final_status = RecoveryState.RECOVERED if recovered_paise > 0 else state["status"]
             self.ledger.record_entry(
