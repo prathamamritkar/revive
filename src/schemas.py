@@ -17,6 +17,10 @@ class ChannelType(str, Enum):
     VOICE_IVR_NUDGE = "VOICE_IVR_NUDGE"
     HUMAN_ESCALATION = "HUMAN_ESCALATION"
 
+class ExecutionMode(str, Enum):
+    MANUAL_POLICY_GATED = "MANUAL_POLICY_GATED"
+    AGENTIC_AUTONOMOUS = "AGENTIC_AUTONOMOUS"
+
 class RecoveryState(str, Enum):
     DETECTED = "DETECTED"
     SCHEDULED = "SCHEDULED"
@@ -25,6 +29,17 @@ class RecoveryState(str, Enum):
     RECOVERED = "RECOVERED"
     HALTED_TERMINAL = "HALTED_TERMINAL"
     HALTED_MAX_ATTEMPTS = "HALTED_MAX_ATTEMPTS"
+    HALTED_MDP_STOPPING_RULE = "HALTED_MDP_STOPPING_RULE"
+
+class AgenticDecisionTrace(BaseModel):
+    agent_id: str = "RevPulse-Agent-01"
+    telemetry_audit: str
+    cbs_diagnosis: str
+    fatigue_reasoning: str
+    recommended_channel: ChannelType
+    confidence_score: float
+    auto_executed: bool
+    timestamp: str
 
 class TelemetryEvent(BaseModel):
     event_id: str
@@ -64,3 +79,30 @@ class DispatchRequest(BaseModel):
     message: str
     payment_url: Optional[str] = None
     channel: ChannelType = ChannelType.WHATSAPP_HINGLISH
+
+class PTPCommitRequest(BaseModel):
+    entity_id: str
+    promised_timestamp_epoch: int
+    promised_amount_paise: int = Field(gt=0)
+    note: Optional[str] = None
+
+class P2PStatus(str, Enum):
+    ACTIVE_PROMISE = "ACTIVE_PROMISE"
+    PROMISE_HONORED = "PROMISE_HONORED"
+    PROMISE_BROKEN = "PROMISE_BROKEN"
+
+class AIIntentResponse(BaseModel):
+    classification: FailureClassification
+    confidence: float
+    detected_intent: str
+    urgency_level: str
+    suggested_tone: str
+
+def redact_pii(contact_str: Optional[str]) -> str:
+    if not contact_str:
+        return "anon_contact"
+    clean = contact_str.replace("whatsapp:", "").strip()
+    if len(clean) >= 10:
+        return f"{clean[:3]}****{clean[-3:]}"
+    import hashlib
+    return f"hash_{hashlib.sha256(clean.encode()).hexdigest()[:8]}"
