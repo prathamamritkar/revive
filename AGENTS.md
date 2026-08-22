@@ -1,4 +1,4 @@
-# RevPulse Sentinel — Agent & Developer Guide
+# RevPulse Sentinel — Central Master Architecture & Agent Guide (SSOT)
 
 ## Core Invariant
 
@@ -14,7 +14,7 @@
 ## Automation Modes
 
 1. **Agentic Mode (`ExecutionMode.AGENTIC_AUTONOMOUS`)**: 100% Autonomous AI execution. Evaluates telemetry, computes MDP net yield, logs `AgenticDecisionTrace`, and auto-approves interventions (`policy_approved = True`).
-2. **Manual Mode (`ExecutionMode.MANUAL_POLICY_GATED`)**: Human-in-the-loop governance. Proposes recovery actions (`policy_approved = False`) requiring manual operator signoff before dispatching links or voice calls.
+2. **Manual Mode (`ExecutionMode.MANUAL_POLICY_GATED`)**: Human-in-the-loop governance. Proposes recovery actions (`policy_approved = False`) requiring manual operator signoff (`approve` or `reject`) before dispatching links or voice calls.
 
 ---
 
@@ -30,6 +30,36 @@
 
 ---
 
+## Master Architecture Principles Matrix (SSOT)
+
+| Principle | Technical Specification & Core Implementation | Target Modules |
+| --- | --- | --- |
+| **DRY** | Centralized constants in `src/constants.py` and helpers in `src/utils.py`. | `src/constants.py`, `src/utils.py` |
+| **OCP** | Extensible strategy registries for LLMs, Diagnostic Rules, Recovery Strategies, Channels, and Webhooks. | `src/classifier.py`, `src/orchestrator.py`, `src/dispatcher.py`, `app.py` |
+| **KISS** | Epoch time math `(epoch_time + 19800) % 86400 // 3600`, simplified route extractions, single-pass ledger summary. | `src/orchestrator.py`, `app.py`, `src/ledger.py` |
+| **LSP** | Behavioral subtyping for channel handlers (`SilentApiRetryChannelHandler`). | `src/dispatcher.py` |
+| **ISP** | Segregated role protocols (`IPaymentLinkGenerator`, `IVirtualAccountGenerator`, `ISubscriptionManager`, `IWebhookVerifier`, `IDispatcher`, `IDispatchHistory`). | `src/interfaces.py`, `src/rzp_client.py` |
+| **PoLA** | Canonical `SentinelDispatcher` naming, state-aware PTP amounts, explicit keyword boundaries. | `src/dispatcher.py`, `src/orchestrator.py` |
+| **Fail-Safe Defaults** | Uncertain/missing ML classifications default to `TERMINAL_AUTH_REJECTED` (0-touch halt). | `src/classifier.py` |
+| **Defense in Depth** | Missing `X-Razorpay-Signature` headers are explicitly rejected (HTTP 401) when secrets are active. | `app.py` |
+| **Immutability** | `model_config = ConfigDict(frozen=True)` on ledger entries, decision traces, and telemetry events. | `src/schemas.py` |
+| **Idempotency** | Re-processing webhooks for `RECOVERED` entities returns `None` with 0 duplicate dispatches. | `src/orchestrator.py` |
+| **CQS** | Pure inspection query `inspect_ptp_status()` separated from command `evaluate_p2p_compliance()`. | `src/orchestrator.py` |
+| **HITL** | Complete operator lifecycle via `reject_and_halt()` and `/api/v1/operator/reject`. | `src/orchestrator.py`, `app.py` |
+| **MDP Stopping Rule** | Sequence halts under `HALTED_MDP_STOPPING_RULE` when $\mathbb{E}[R_{\text{net}}] \le 0$ via `MDPYieldCalculator`. | `src/orchestrator.py` |
+| **Evidence-Bound** | Classifications capture `evidence_source` & `evidence_payload`; terminal candidate confidence must be $\ge 0.85$. | `src/schemas.py`, `src/classifier.py`, `src/orchestrator.py` |
+| **Explainability First** | 4-step structured rationale chains (`reasoning_chain`) embedded into `AgenticDecisionTrace`. | `src/schemas.py`, `src/orchestrator.py` |
+| **Auditability by Design** | Single-block SHA-256 cryptographic proofs via `verify_block_proof()` and `/api/v1/ledger/audit/{log_id}`. | `src/ledger.py`, `app.py` |
+| **12-Factor App** | Environment config (`HOST`, `PORT`), unbuffered `sys.stdout` event logs, FastAPI `lifespan` disposability. | `src/constants.py`, `app.py` |
+| **Graceful Degradation** | API/IVR outages fall back to synthetic mocks tagged with `"is_degraded_fallback": True`. | `src/rzp_client.py`, `src/dispatcher.py` |
+| **Chronological Compliance** | TRAI gate bounds (08:00–19:00 IST) defer non-compliant dispatches by `+12h` (`is_trai_deferred: True`). | `src/orchestrator.py` |
+| **Poka-Yoke** | Defect prevention in inputs: phone normalization (`whatsapp:+91...`), `ValueError` on non-positive PTP inputs. | `src/utils.py`, `src/orchestrator.py` |
+| **SSOT** | Unified entity lifecycle inspection getter `get_entity_ssot()` and `/api/v1/entity/{entity_id}/ssot` API. | `src/orchestrator.py`, `app.py` |
+| **Context Map Pattern** | Structural context map artifact `.antigravity-context-map.md` mapping all 6 bounded contexts & repository index. | `.antigravity-context-map.md` |
+| **Reproducibility** | Deterministic decision replay engine `replay_event()` and `/api/v1/replay` API endpoint for 100% reproducible audit replay. | `src/orchestrator.py`, `app.py` |
+
+---
+
 ## Stopping Invariants (Non-Negotiable)
 
 1. **Terminal failure → 0 touches.** `TERMINAL_ACCOUNT_CLOSED` and `TERMINAL_AUTH_REJECTED` immediately halt all recovery. No WhatsApp, no Voice, no retry, no escalation.
@@ -40,26 +70,16 @@
 
 ---
 
-## Code Conventions
-
-- **All monetary amounts are stored in Paise (integer).** Never convert to INR in backend logic; convert only at display boundaries.
-- **SHA-256 hash payload format**: `f"{entity_id}:{status.value}:{recovered_paise}:{prev_hash}"`.
-- **Entity IDs** must be globally unique. Format: `{prefix}_{unix_epoch}` for synthetic events.
-- **Environment variables** govern all feature toggles (`TRAI_ENFORCE_TIME_GATE`, `USE_MOCK_DISPATCHER`). Never hardcode.
-- **No inline code comments** in generated code blocks (per token optimization rules).
-
----
-
 ## File Ownership
 
 | File | Owner | Responsibility |
 | --- | --- | --- |
-| `src/classifier.py` | Classification layer | CBS registry + error parsing rules |
-| `src/orchestrator.py` | Recovery policy layer | Scheduling, TRAI gate, PTP freeze, stopping rules, MDP, Agentic trace |
-| `src/ledger.py` | Audit layer | Append-only SHA-256 chain |
-| `src/dispatcher.py` | Communication layer | WhatsApp Hinglish + Twilio Voice IVR |
-| `src/rzp_client.py` | Integration layer | Razorpay REST API (Links, Retries, Virtual Accounts) & Webhook signature verifier |
-| `app.py` | API boundary | FastAPI routes, live webhook auto-reconciler, readiness probes |
+| `src/classifier.py` | Classification layer | CBS registry + error parsing rules + LLM Provider Registry |
+| `src/orchestrator.py` | Recovery policy layer | Scheduling, TRAI gate, PTP freeze, stopping rules, MDP, Agentic trace, SSOT |
+| `src/ledger.py` | Audit layer | Append-only SHA-256 chain + Block proof verifier |
+| `src/dispatcher.py` | Communication layer | `SentinelDispatcher` (WhatsApp Hinglish + Twilio Voice IVR) |
+| `src/rzp_client.py` | Integration layer | Razorpay REST API (Links, Retries, Virtual Accounts) & Webhook verifier |
+| `app.py` | API boundary | FastAPI routes, live webhook auto-reconciler, readiness probes, SSOT routes |
 | `dashboard.py` | Presentation layer | Streamlit 5-tab command center UI & mode controls |
 | `run_demo.py` | Automated orchestrator | Python master launcher managing FastAPI, Streamlit, and pyngrok tunnels |
 | `run.bat` / `run.ps1` | Executables | 1-click execution scripts |
@@ -69,12 +89,14 @@
 
 ## Testing Contract
 
-Run `python test_suite.py` to verify all 6 stages:
+Run `python test_suite.py` to verify all 8 stages:
 1. Telemetry Classifier + CBS health diagnosis
 2. Orchestrator policy gates + stopping invariants
 3. Razorpay Payment Link + Virtual Account generation
 4. WhatsApp Hinglish dispatcher (mock & Twilio mode)
 5. Hinglish Voice IVR call dispatch & Promise-to-Pay (PTP) freeze
 6. SHA-256 ledger integrity over 50-record benchmark batch
+7. FastAPI REST Endpoints End-to-End
+8. Comprehensive Master Architectural Principles Verification Matrix
 
-All 6 stages must pass before any PR or demo deployment.
+All 8 stages must pass before any PR or demo deployment.
