@@ -5,13 +5,29 @@ __pycache__/
 
 # Environments & secrets
 .env
+.env.local
+.env.*.local
 venv/
+.venv/
 env/
 ENV/
 
 # IDE & Editor settings
 .idea/
 .vscode/
+*.swp
+*.swo
 
-# Temporary / Scratch
+# Temporary / Scratch scripts
+_validate.py
+scratch/
 sample/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Test & Coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
