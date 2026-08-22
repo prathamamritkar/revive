@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -32,6 +32,7 @@ class RecoveryState(str, Enum):
     HALTED_MDP_STOPPING_RULE = "HALTED_MDP_STOPPING_RULE"
 
 class AgenticDecisionTrace(BaseModel):
+    model_config = ConfigDict(frozen=True)
     agent_id: str = "RevPulse-Agent-01"
     telemetry_audit: str
     cbs_diagnosis: str
@@ -40,8 +41,10 @@ class AgenticDecisionTrace(BaseModel):
     confidence_score: float
     auto_executed: bool
     timestamp: str
+    reasoning_chain: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class TelemetryEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
     event_id: str
     event_type: str
     entity_id: str
@@ -54,6 +57,7 @@ class TelemetryEvent(BaseModel):
     timestamp_utc: datetime
 
 class RecoveryAction(BaseModel):
+    model_config = ConfigDict(frozen=True)
     action_id: str
     entity_id: str
     target_channel: ChannelType
@@ -64,6 +68,7 @@ class RecoveryAction(BaseModel):
     policy_approved: bool = True
 
 class AuditLedgerEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
     log_id: str
     timestamp: str
     entity_id: str
@@ -73,6 +78,7 @@ class AuditLedgerEntry(BaseModel):
     attempt_count: int
     total_cost_incurred_paise: int
     audit_hash: str
+    reason_code: Optional[str] = "POLICY_EXECUTION"
 
 class DispatchRequest(BaseModel):
     phone_number: str
@@ -92,17 +98,15 @@ class P2PStatus(str, Enum):
     PROMISE_BROKEN = "PROMISE_BROKEN"
 
 class AIIntentResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
     classification: FailureClassification
     confidence: float
     detected_intent: str
     urgency_level: str
     suggested_tone: str
+    evidence_source: str = "DETERMINISTIC_CBS_REGISTRY"
+    evidence_payload: str = ""
 
 def redact_pii(contact_str: Optional[str]) -> str:
-    if not contact_str:
-        return "anon_contact"
-    clean = contact_str.replace("whatsapp:", "").strip()
-    if len(clean) >= 10:
-        return f"{clean[:3]}****{clean[-3:]}"
-    import hashlib
-    return f"hash_{hashlib.sha256(clean.encode()).hexdigest()[:8]}"
+    from src.utils import redact_pii as _redact
+    return _redact(contact_str)
