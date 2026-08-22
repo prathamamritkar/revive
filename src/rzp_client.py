@@ -1,11 +1,18 @@
 import os
 import requests
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from typing import Dict, Any, Optional
+from src.utils import verify_hmac_sha256
+from src.interfaces import (
+    IPaymentLinkGenerator, IVirtualAccountGenerator, ISubscriptionManager, IWebhookVerifier
+)
 
 load_dotenv()
 
-class RazorpayClientWrapper:
+class RazorpayClientWrapper(
+    IPaymentLinkGenerator, IVirtualAccountGenerator, ISubscriptionManager, IWebhookVerifier
+):
     def __init__(self):
         self.key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_dummy")
         self.key_secret = os.getenv("RAZORPAY_KEY_SECRET", "dummy_secret")
@@ -20,7 +27,19 @@ class RazorpayClientWrapper:
             "status": "created",
             "amount": amount_paise,
             "description": description,
-            "is_mock": True
+            "is_mock": True,
+            "is_degraded_fallback": True,
+        }
+
+    def _mock_virtual_account(self, invoice_id: str) -> Dict[str, Any]:
+        return {
+            "virtual_account_id": f"va_{invoice_id[:8]}",
+            "upi_id": f"rzp.virtual.{invoice_id[:8]}@hdfcbank",
+            "account_number": f"7890{invoice_id[:8]}",
+            "ifsc": "RAZR0000001",
+            "bank_name": "Razorpay HDFC Virtual Bank",
+            "is_mock": True,
+            "is_degraded_fallback": True,
         }
 
     def create_payment_link(
@@ -41,7 +60,7 @@ class RazorpayClientWrapper:
             "accept_partial": False,
             "description": description,
             "reference_id": entity_id,
-            "expire_by": int(requests.utils.datetime.now().timestamp()) + (expire_hours * 3600),
+            "expire_by": int(datetime.now(timezone.utc).timestamp()) + (expire_hours * 3600),
             "customer": {
                 "contact": customer_phone or "+919876543210",
                 "name": "Valued Customer"
@@ -83,14 +102,7 @@ class RazorpayClientWrapper:
 
     def generate_virtual_account(self, invoice_id: str, amount_paise: Optional[int] = None) -> Dict[str, Any]:
         if not self.is_configured:
-            return {
-                "virtual_account_id": f"va_{invoice_id[:8]}",
-                "upi_id": f"rzp.virtual.{invoice_id[:8]}@hdfcbank",
-                "account_number": f"7890{invoice_id[:8]}",
-                "ifsc": "RAZR0000001",
-                "bank_name": "Razorpay HDFC Virtual Bank",
-                "is_mock": True
-            }
+            return self._mock_virtual_account(invoice_id)
 
         url = f"{self.base_url}/virtual_accounts"
         payload = {
@@ -126,21 +138,7 @@ class RazorpayClientWrapper:
         except Exception:
             pass
 
-        return {
-            "virtual_account_id": f"va_{invoice_id[:8]}",
-            "upi_id": f"rzp.virtual.{invoice_id[:8]}@hdfcbank",
-            "account_number": f"7890{invoice_id[:8]}",
-            "ifsc": "RAZR0000001",
-            "bank_name": "Razorpay HDFC Virtual Bank",
-            "is_mock": True
-        }
+        return self._mock_virtual_account(invoice_id)
 
     def verify_webhook_signature(self, body_bytes: bytes, signature: str) -> bool:
-        import hmac
-        import hashlib
-        expected_sig = hmac.new(
-            self.webhook_secret.encode("utf-8"),
-            body_bytes,
-            hashlib.sha256
-        ).hexdigest()
-        return hmac.compare_digest(expected_sig, signature)
+        return verify_hmac_sha256(body_bytes, signature, self.webhook_secret)
