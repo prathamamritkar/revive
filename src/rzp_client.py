@@ -81,11 +81,66 @@ class RazorpayClientWrapper:
         except Exception as e:
             return {"subscription_id": subscription_id, "status": "error", "message": str(e), "is_mock": True}
 
-    def generate_virtual_account(self, invoice_id: str) -> Dict[str, Any]:
+    def generate_virtual_account(self, invoice_id: str, amount_paise: Optional[int] = None) -> Dict[str, Any]:
+        if not self.is_configured:
+            return {
+                "virtual_account_id": f"va_{invoice_id[:8]}",
+                "upi_id": f"rzp.virtual.{invoice_id[:8]}@hdfcbank",
+                "account_number": f"7890{invoice_id[:8]}",
+                "ifsc": "RAZR0000001",
+                "bank_name": "Razorpay HDFC Virtual Bank",
+                "is_mock": True
+            }
+
+        url = f"{self.base_url}/virtual_accounts"
+        payload = {
+            "receivers": {"types": ["bank_account", "vpa"]},
+            "description": f"Virtual Account for Invoice #{invoice_id}",
+            "notes": {"invoice_id": invoice_id}
+        }
+        if amount_paise:
+            payload["amount_expected"] = amount_paise
+
+        try:
+            res = requests.post(url, json=payload, auth=(self.key_id, self.key_secret), timeout=10)
+            if res.status_code in [200, 201]:
+                data = res.json()
+                receivers = data.get("receivers", [])
+                upi_id = f"rzp.virtual.{invoice_id[:8]}@hdfcbank"
+                acc_num = f"7890{invoice_id[:8]}"
+                ifsc = "RAZR0000001"
+                for r in receivers:
+                    if r.get("entity") == "vpa":
+                        upi_id = r.get("address", upi_id)
+                    elif r.get("entity") == "bank_account":
+                        acc_num = r.get("account_number", acc_num)
+                        ifsc = r.get("ifsc", ifsc)
+                return {
+                    "virtual_account_id": data.get("id"),
+                    "upi_id": upi_id,
+                    "account_number": acc_num,
+                    "ifsc": ifsc,
+                    "bank_name": "Razorpay Virtual Bank",
+                    "is_mock": False
+                }
+        except Exception:
+            pass
+
         return {
             "virtual_account_id": f"va_{invoice_id[:8]}",
             "upi_id": f"rzp.virtual.{invoice_id[:8]}@hdfcbank",
             "account_number": f"7890{invoice_id[:8]}",
             "ifsc": "RAZR0000001",
-            "bank_name": "Razorpay HDFC Virtual Bank"
+            "bank_name": "Razorpay HDFC Virtual Bank",
+            "is_mock": True
         }
+
+    def verify_webhook_signature(self, body_bytes: bytes, signature: str) -> bool:
+        import hmac
+        import hashlib
+        expected_sig = hmac.new(
+            self.webhook_secret.encode("utf-8"),
+            body_bytes,
+            hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(expected_sig, signature)

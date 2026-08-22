@@ -1,16 +1,28 @@
 import json
 import os
 import uvicorn
+import hmac
+import hashlib
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
-from src.schemas import TelemetryEvent, DispatchRequest
+from src.schemas import TelemetryEvent, DispatchRequest, PTPCommitRequest
 from src.orchestrator import RevPulseOrchestrator
 from src.dispatcher import WhatsAppDispatcher
 
 load_dotenv()
+
+def verify_razorpay_signature(raw_body: bytes, signature: str, secret: str) -> bool:
+    if not secret or not signature:
+        return True
+    expected_signature = hmac.new(
+        key=secret.encode("utf-8"),
+        msg=raw_body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected_signature, signature)
 
 app = FastAPI(
     title="RevPulse Sentinel — Razorpay AI Revenue Recovery Engine",
@@ -93,17 +105,52 @@ def readiness_probe():
 @app.post("/webhook/razorpay")
 async def razorpay_webhook(request: Request, background_tasks: BackgroundTasks):
     try:
-        body = await request.json()
+        raw_body = await request.body()
+        sig_header = request.headers.get("X-Razorpay-Signature", "")
+        sec_key = os.getenv("RAZORPAY_WEBHOOK_SECRET", "revpulse_secret_2026")
+        if sig_header and not verify_razorpay_signature(raw_body, sig_header, sec_key):
+            raise HTTPException(status_code=401, detail="Invalid Razorpay webhook HMAC signature")
+
+        body = json.loads(raw_body.decode("utf-8")) if raw_body else await request.json()
         event_name = body.get("event", "payment.failed")
         payload = body.get("payload", {})
-        
-        entity = payload.get("payment", {}).get("entity", {}) or payload.get("subscription", {}).get("entity", {})
-        entity_id = entity.get("id", f"ent_{int(datetime.now().timestamp())}")
-        amount_paise = entity.get("amount", 150000)
-        error_code = entity.get("error_code") or entity.get("error_reason") or "GATEWAY_TIMEOUT"
-        contact = entity.get("contact", "+919876543210")
+
+        payment_entity = payload.get("payment", {}).get("entity", {})
+        plink_entity = payload.get("payment_link", {}).get("entity", {})
+        sub_entity = payload.get("subscription", {}).get("entity", {})
+        va_entity = payload.get("virtual_account", {}).get("entity", {})
+
+        entity = payment_entity or plink_entity or sub_entity or va_entity
+        entity_id = plink_entity.get("reference_id") or entity.get("notes", {}).get("invoice_id") or entity.get("id", f"ent_{int(datetime.now().timestamp())}")
+        amount_paise = entity.get("amount") or entity.get("amount_paid") or 150000
+        contact = entity.get("contact") or payment_entity.get("contact", "+919876543210")
         bank = entity.get("bank", "HDFC")
 
+        if event_name in ["payment_link.paid", "order.paid", "virtual_account.credited", "payment.authorized", "payment.captured"]:
+            state = orchestrator.state_store.get(entity_id, {"attempts": 1, "status": RecoveryState.DISPATCHED})
+            state["status"] = RecoveryState.RECOVERED
+            state["recovered_paise"] = amount_paise
+            orchestrator.state_store[entity_id] = state
+
+            entry = orchestrator.ledger.record_entry(
+                entity_id=entity_id,
+                initial_paise=amount_paise,
+                recovered_paise=amount_paise,
+                status=RecoveryState.RECOVERED,
+                attempt_count=state.get("attempts", 1),
+                cost_paise=60
+            )
+
+            return {
+                "status": "RECOVERED_AUTO_RECONCILED",
+                "event_processed": event_name,
+                "entity_id": entity_id,
+                "amount_paise": amount_paise,
+                "ledger_log_id": entry.log_id,
+                "audit_hash": entry.audit_hash
+            }
+
+        error_code = entity.get("error_code") or entity.get("error_reason") or "GATEWAY_TIMEOUT"
         event = TelemetryEvent(
             event_id=body.get("event_id", f"evt_{int(datetime.now().timestamp())}"),
             event_type=event_name,
@@ -122,7 +169,7 @@ async def razorpay_webhook(request: Request, background_tasks: BackgroundTasks):
             "status": "ACCEPTED",
             "event_processed": event_name,
             "entity_id": entity_id,
-            "action_scheduled": action.dict() if action else None
+            "action_scheduled": action.model_dump() if action else None
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -130,16 +177,38 @@ async def razorpay_webhook(request: Request, background_tasks: BackgroundTasks):
 @app.post("/api/event")
 def process_custom_event(event: TelemetryEvent):
     action = orchestrator.process_event(event)
+    trace = orchestrator.state_store.get(event.entity_id, {}).get("last_trace")
     return {
         "event_id": event.event_id,
+        "execution_mode": orchestrator.mode.value,
         "classification": orchestrator.classifier.diagnose(event).value,
-        "action": action.dict() if action else None
+        "action": action.model_dump() if action else None,
+        "agentic_trace": trace
     }
 
 @app.post("/api/dispatch")
 def dispatch_whatsapp(req: DispatchRequest):
     res = dispatcher.dispatch(req)
     return res
+
+@app.post("/api/v1/operator/approve", tags=["Operator In-The-Loop"])
+def approve_pending_action(entity_id: str):
+    res = orchestrator.approve_and_dispatch(entity_id)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"No pending operator approval found for entity '{entity_id}'")
+    return res
+
+@app.post("/api/v1/ptp/commit", tags=["Intervention"])
+def register_ptp(req: PTPCommitRequest):
+    res = orchestrator.register_ptp_commitment(
+        entity_id=req.entity_id,
+        promised_timestamp_epoch=req.promised_timestamp_epoch,
+        note=req.note
+    )
+    return {
+        "status": "SUCCESS",
+        "ptp_commitment": res
+    }
 
 @app.get("/api/benchmark")
 def run_benchmark():
@@ -157,7 +226,7 @@ def run_benchmark():
     return {
         "summary": summary,
         "dispatches_sent": dispatcher.get_dispatch_history()[:10],
-        "sample_ledger_entries": [e.dict() for e in chain[:10]]
+        "sample_ledger_entries": [e.model_dump() for e in chain[:10]]
     }
 
 if __name__ == "__main__":
