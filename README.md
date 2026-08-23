@@ -87,20 +87,22 @@ Classification Space C ∈ {
 
 ## Policy Governance & Mathematical MDP Invariants
 
-Revive models recovery as a constrained Markov Decision Process (MDP) to maximize **Net Expected Recovered Capital ($\mathbb{E}[R_{\text{net}}]$)** while bounding operational costs and customer fatigue:
+Revive models recovery as a constrained Markov Decision Process (MDP) to maximize Net Expected Recovered Capital ($E[R_{\text{net}}]$) while bounding operational costs and customer fatigue:
 
-$$\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot \text{GrossAmountPaise} - (C_{\text{channel}} + \lambda \cdot k)$$
+$$
+\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot \text{GrossAmount} - (C_{\text{channel}} + \lambda \cdot k)
+$$
 
 Where:
 - $P_{\text{success}}(k)$: Empirical recovery probability at attempt $k$ ($P(1)=0.75, P(2)=0.50, P(3)=0.25$).
-- $\text{GrossAmountPaise}$: Transaction amount in integer Paise ($1 \text{ INR} = 100 \text{ Paise}$).
+- $\text{GrossAmount}$: Transaction amount in integer Paise ($1 \text{ INR} = 100 \text{ Paise}$).
 - $C_{\text{channel}}$: Operational transmission cost ($\text{Silent}=0, \text{WhatsApp}=60, \text{Voice}=150, \text{Human}=500 \text{ Paise}$).
 - $\lambda \cdot k$: Customer fatigue penalty function ($\lambda = 100 \text{ Paise/attempt}$).
 
 ### Non-Negotiable Invariant Rules
 
-1. **MDP Halting Threshold**: Outreach strictly halts (`HALTED_MDP_STOPPING_RULE`) at step $k^*$ when $\mathbb{E}[R_{\text{net}}](k^*) \le 0$.
-2. **Attempt Ceiling**: Hard cap at `k = 3` attempts (`HALTED_MAX_ATTEMPTS`).
+1. **MDP Halting Threshold**: Outreach strictly halts (`HALTED_MDP_STOPPING_RULE`) at step $k^*$ when $E[R_{\text{net}}](k^*) \le 0$.
+2. **Attempt Ceiling**: Hard cap at $k = 3$ attempts (`HALTED_MAX_ATTEMPTS`).
 3. **Terminal Prohibition**: Immediate 0-touch halt on `TERMINAL_ACCOUNT_CLOSED` and `TERMINAL_AUTH_REJECTED`.
 4. **TRAI Chrono-Gate Bounds**: Customer outreach is restricted to **08:00–19:00 IST**. Non-compliant schedules are deferred by `+12h` (`is_trai_deferred: True`).
 5. **Promise-to-Pay (PTP) Lock**: Active PTP commitments freeze outreach until `promised_timestamp_epoch`.
@@ -112,7 +114,9 @@ Where:
 
 - **SHA-256 Chain Integrity**: Every state transition generates an immutable hash block:
 
-$$H_i = \text{SHA-256}(\texttt{entity\_id} \mathbin{\|} \texttt{status} \mathbin{\|} \texttt{recovered\_paise} \mathbin{\|} H_{i-1} \mathbin{\|} \texttt{timestamp})$$
+$$
+H_i = \text{SHA-256}(\text{entity-id} \parallel \text{status} \parallel \text{recovered-paise} \parallel H_{i-1} \parallel \text{timestamp})
+$$
 
 - **HMAC Signature Authentication**: Ingested webhooks verify HMAC-SHA256 signature headers (`X-Webhook-Signature` / `X-Razorpay-Signature`) against `REVIVE_WEBHOOK_SECRET`.
 - **PII Anonymization**: Telephone numbers and customer identifiers are hashed via `redact_pii()` prior to logging or external API transmission.
