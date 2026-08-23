@@ -1,6 +1,10 @@
-# Revive — Technical Specification & Architecture
+# Revive — Technical Architecture Specification
 
-This document describes the executable implementation of **Revive**.
+> **Deep Technical System Architecture, Sequence Flow & State Invariant Specifications**
+
+[← Back to Master Overview](./README.md) • [Architectural Rules (AGENTS.md)](./AGENTS.md) • [System Readiness Probe](http://localhost:8000/api/v1/readiness)
+
+---
 
 ## Core Invariant
 
@@ -13,21 +17,21 @@ This document describes the executable implementation of **Revive**.
 
 ---
 
-## Runtime Architecture & Layer Specs
+## Runtime Architecture & Layer Specifications
 
-| Layer | Technology | Responsibility |
+| Layer | Technology & File | Responsibility |
 | --- | --- | --- |
-| **Presentation Layer** | Streamlit, Plus Jakarta Sans, JetBrains Mono | 5-tab command center: Theme & Automation Mode selector (`Agentic` vs `Manual`), KPI cards, CBS diagnostic inspector, MDP simulator, WhatsApp/Voice sandbox, SHA-256 ledger explorer. |
-| **API Boundary** | FastAPI, Pydantic v2 | Endpoint routing (`/webhook/payment`, `/api/v1/ptp/commit`, `/api/v1/readiness`, `/api/event`, `/api/benchmark`), HMAC signature verification. |
-| **Layer 1: Telemetry Diagnostic** | Python, CBS matrix dictionary | Diagnoses raw telemetry error signatures against issuing bank core banking system health matrix (HDFC, SBIN, ICIC, UTIB, KKBK). |
-| **Layer 2: Policy & Agentic Orchestrator** | Python, MDP Bellman formulation | TRAI 08:00–19:00 IST chrono-gate (+12h shift), Promise-to-Pay (PTP) freeze epochs, MDP net yield stopping bounds, `MAX_ATTEMPTS = 3` caps, decision trace logging. |
-| **Layer 3: Adaptive Multi-Channel Dispatcher** | Twilio SDK / Mock Mode | WhatsApp Hinglish messaging, TwiML Hinglish Voice IVR outbound call synthesis (`<Say language="hi-IN">`), 1-Click Payment Links (`/v1/payment_links`), Virtual Accounts (`/v1/virtual_accounts`). |
-| **Layer 4: SHA-256 Audit Ledger** | Python `hashlib`, append-only chain | Cryptographic state-transition blocks (`f"{entity_id}:{status}:{recovered_paise}:{prev_hash}"`), paisa-exact settlement verification. |
-| **Automated Orchestrator** | `run_demo.py`, `pyngrok` | Master process orchestrator launching FastAPI, Streamlit, and establishing public HTTPS webhook tunnel on port 8000. |
+| **Presentation Layer** | Streamlit, Plus Jakarta Sans, JetBrains Mono ([dashboard.py](./dashboard.py)) | 5-tab command center: Theme & Automation Mode selector (`Agentic` vs `Manual`), KPI cards, CBS diagnostic inspector, MDP simulator, WhatsApp/Voice sandbox, SHA-256 ledger explorer. |
+| **API Boundary** | FastAPI, Pydantic v2 ([app.py](./app.py)) | Endpoint routing (`/webhook/payment`, `/api/v1/ptp/commit`, `/api/v1/readiness`, `/api/event`, `/api/benchmark`), HMAC signature verification. |
+| **Layer 1: Telemetry Diagnostic** | Python, CBS matrix dictionary ([src/classifier.py](./src/classifier.py)) | Diagnoses raw telemetry error signatures against issuing bank core banking system health matrix (HDFC, SBIN, ICIC, UTIB, KKBK). |
+| **Layer 2: Policy & Agentic Orchestrator** | Python, MDP Bellman formulation ([src/orchestrator.py](./src/orchestrator.py)) | TRAI 08:00–19:00 IST chrono-gate (+12h shift), Promise-to-Pay (PTP) freeze epochs, MDP net yield stopping bounds, `MAX_ATTEMPTS = 3` caps, decision trace logging. |
+| **Layer 3: Multi-Channel Dispatcher** | Twilio SDK / Mock Mode ([src/dispatcher.py](./src/dispatcher.py)) | WhatsApp Hinglish messaging, TwiML Hinglish Voice IVR outbound call synthesis (`<Say language="hi-IN">`), 1-Click Payment Links (`/v1/payment_links`), Virtual Accounts (`/v1/virtual_accounts`). |
+| **Layer 4: SHA-256 Audit Ledger** | Python `hashlib`, append-only chain ([src/ledger.py](./src/ledger.py)) | Cryptographic state-transition blocks (`SHA-256(entity_id:status:recovered_paise:prev_hash:timestamp)`), paisa-exact settlement verification. |
+| **Automated Orchestrator** | Python process runner ([run_demo.py](./run_demo.py)) | Master process orchestrator launching FastAPI, Streamlit, and establishing public HTTPS webhook tunnel on port 8000. |
 
 ---
 
-## Complete Request & Webhook Flow
+## Complete Request & Webhook Sequence Flow
 
 ```mermaid
 sequenceDiagram
@@ -76,7 +80,7 @@ sequenceDiagram
 
 Calculates expected net return per attempt $k$:
 
-$$\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \times \text{gross\_amount\_paise} - (C_{\text{channel}} + \lambda \cdot k)$$
+$$\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot \text{GrossAmountPaise} - (C_{\text{channel}} + \lambda \cdot k)$$
 
 Where:
 - $P_{\text{success}}(k) = \max(0.05, 0.75 - (k-1) \cdot 0.25)$

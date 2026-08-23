@@ -1,4 +1,10 @@
-# Revive — Enterprise Business Case & Strategy
+# Revive — Enterprise Business Case & Financial Strategy
+
+> **Quantifiable ROI, Unit Economics & Regulatory Compliance Model for Autonomous Revenue Recovery**
+
+[← Back to Master Overview](./README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [60-Second Demo Pitch (DEMO_RUNBOOK.md)](./DEMO_RUNBOOK.md)
+
+---
 
 ## Executive Summary
 
@@ -12,18 +18,18 @@ Revenue loss in digital commerce and subscription SaaS rarely occurs as a single
 
 ## Failure Surfaces & Value Captured
 
-| Failure Surface | Industry Impact | Existing Solution | Why It Fails | Revive Solution |
+| Failure Surface | Industry Impact | Existing Solution | Why It Fails | Revive System Solution |
 | --- | --- | --- | --- | --- |
-| **UPI Autopay / e-Mandate Failures** | 15%–35% ARR churn | Immediate blind retry | Retries hit the same bank downtime window; exhausts 3-attempt mandate lifetime | Telemetry-aware silent retry (+45m) post CBS recovery ETA |
-| **Checkout Drop-offs** | 4%–8% GMV lost | Cold cart email after 24h | Wrong channel, wrong timing, no 1-click payment path | Hinglish WhatsApp message with 1-click payment link (+15m) |
-| **Overdue B2B Invoices** | 12%–20% working capital drag | Manual phone follow-up | Not traceable, not auto-reconciling, high labor cost | Auto-reconciling Virtual Accounts (`revive.virtual.*@hdfcbank`) |
-| **Broken Customer Commitments** | 8%–14% bad debt write-off | Repeated intrusive spam calls | Ignores customer salary cycle, triggers customer block | Promise-to-Pay (PTP) state machine freezing retries until promised epoch |
+| **UPI Autopay / e-Mandate Failures** | 15%–35% ARR churn | Immediate blind retry | Retries hit the same bank downtime window; exhausts 3-attempt mandate lifetime | Telemetry-aware silent retry (+45m) post CBS recovery ETA ([src/classifier.py](./src/classifier.py)) |
+| **Checkout Drop-offs** | 4%–8% GMV lost | Cold cart email after 24h | Wrong channel, wrong timing, no 1-click payment path | Hinglish WhatsApp message with 1-click payment link (+15m) ([src/dispatcher.py](./src/dispatcher.py)) |
+| **Overdue B2B Invoices** | 12%–20% working capital drag | Manual phone follow-up | Not traceable, not auto-reconciling, high labor cost | Dedicated Virtual Accounts (`rzp.virtual.*@hdfcbank`) for NEFT clearance ([src/payment_client.py](./src/payment_client.py)) |
+| **Broken Customer Commitments** | 8%–14% bad debt write-off | Repeated intrusive spam calls | Ignores customer salary cycle, triggers customer block | Promise-to-Pay (PTP) state machine freezing retries until promised epoch ([src/orchestrator.py](./src/orchestrator.py)) |
 
 ---
 
-## 7-Direction Alignment Matrix
+## 7 Core Recovery Directions Alignment Matrix
 
-| Direction | Implementation | Business Value |
+| Direction | Implementation | Business Value & Financial Impact |
 | --- | --- | --- |
 | **1. Payment Degradation $\rightarrow$ Root Cause** | `TelemetryClassifier` + CBS Matrix | Prevents premature subscription cancellation by delaying retries by +45m. |
 | **2. Checkout Drop-off Recovery** | Hinglish WhatsApp + 1-Click Link | Achieves 2.4× higher click-through rate vs generic SMS. |
@@ -39,13 +45,13 @@ Revenue loss in digital commerce and subscription SaaS rarely occurs as a single
 
 | Metric | Value | Business Significance |
 | --- | --- | --- |
-| **Cost per WhatsApp Dispatch** | ₹0.60 | Low variable cost |
-| **Cost per Voice IVR Call** | ₹1.50 | Scalable automated voice |
-| **Avg Recovered GMV per Event** | ₹2,904.00 | High capital recapture |
-| **Ops Cost Ratio** | **0.011% of Recovered GMV** | Exceptional ROI multiple (>9,000×) |
+| **Cost per WhatsApp Dispatch** | ₹0.60 | Low variable operational cost |
+| **Cost per Voice IVR Call** | ₹1.50 | Scalable automated spoken voice engagement |
+| **Avg Recovered GMV per Event** | ₹2,904.00 | High capital recapture per recovered transaction |
+| **Ops Cost Ratio** | **0.011% of Recovered GMV** | Exceptional ROI multiple (>8,900× return on outreach spend) |
 | **Net Recovery Yield (50 Records)** | **68.62%** | Recovers ₹1,45,200 out of ₹2,11,600 exposed GMV |
 | **TRAI / RBI Regulatory Violations** | **0** | 100% compliant chrono-gate (08:00–19:00 IST) |
-| **SHA-256 Ledger Integrity** | **100% Valid** | Cryptographically tamper-proof audit trail |
+| **SHA-256 Ledger Integrity** | **100% Valid** | Cryptographically tamper-proof audit trail ([src/ledger.py](./src/ledger.py)) |
 
 ---
 

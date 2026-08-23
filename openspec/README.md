@@ -1,4 +1,10 @@
-# Revive — OpenSpec Engineering Roadmap
+# Revive — OpenSpec Engineering Specification & Roadmap
+
+> **Formal Versioned Specifications, Feature Audit & Roadmap**
+
+[← Back to Master Overview](../README.md) • [Technical Architecture (TECHNICAL.md)](../TECHNICAL.md) • [Master Rules (AGENTS.md)](../AGENTS.md)
+
+---
 
 ## Versioned Specifications
 
@@ -6,7 +12,7 @@
 
 **Status**: ✓ Fully Implemented & 100% Verified.
 
-#### Data Schemas (`src/schemas.py`)
+#### Data Schemas ([src/schemas.py](../src/schemas.py))
 
 | Schema | Fields | Notes |
 | --- | --- | --- |
@@ -21,7 +27,7 @@
 
 #### Failure Classification & Channel Routing
 
-```
+```text
 TRANSIENT_NETWORK_DOWN   → SILENT_API_RETRY    (+45m CBS-window delay)
 TRANSIENT_BALANCE_LOW    → WHATSAPP_HINGLISH   (+24h, Payment Link)
 B2B_OVERDUE_INVOICE      → WHATSAPP_HINGLISH   (+1h, Virtual Account)
@@ -39,18 +45,18 @@ MDP_EXPECTED_NET_LE_0    → HALT               (0 touches)
 
 | Feature | Status | Implementation Details |
 | --- | --- | --- |
-| Telemetry classifier + CBS registry | ✓ Done | Deterministic rule tree (`src/classifier.py`) |
+| Telemetry classifier + CBS registry | ✓ Done | Deterministic rule tree ([src/classifier.py](../src/classifier.py)) |
 | TRAI chrono-gate | ✓ Done | `is_trai_compliant_time()` (08:00–19:00 IST) |
 | Stopping invariants | ✓ Done | Terminal halt, Attempt cap (3), PTP freeze, MDP net return halt |
 | Automation Mode Selector | ✓ Done | Dual execution mode (`Agentic Autonomous` vs `Manual Policy-Gated`) |
 | AI Agent Decision Trace Engine | ✓ Done | `AgenticDecisionTrace` with confidence scoring (`96% Confidence`) |
-| Hinglish WhatsApp dispatcher | ✓ Done | Twilio SDK + mock mode (`src/dispatcher.py`) |
+| Hinglish WhatsApp dispatcher | ✓ Done | Twilio SDK + mock mode ([src/dispatcher.py](../src/dispatcher.py)) |
 | Hinglish Voice IVR dispatcher | ✓ Done | Twilio Voice API TwiML `<Say language="hi-IN">` call synthesis |
 | Promise-to-Pay (PTP) tracker | ✓ Done | `register_ptp_commitment` & `POST /api/v1/ptp/commit` |
 | 1-Click Payment Link generation | ✓ Done | Real REST API `/v1/payment_links` integration |
 | Virtual Account generation | ✓ Done | Real REST API `/v1/virtual_accounts` integration |
 | Webhook Auto-Reconciliation | ✓ Done | HMAC SHA-256 signature verification & auto-ledger block creation |
-| SHA-256 audit ledger | ✓ Done | Append-only chain + O(n) verify (`src/ledger.py`) |
-| 50-record benchmark dataset | ✓ Done | `data/synthetic_batch_50.json` (68.62% net recovery yield) |
-| 1-Click Master Launcher | ✓ Done | `run_demo.py`, `run.bat`, `run.ps1` with `pyngrok` tunneling |
-| 8-Stage Automated Test Suite | ✓ Done | `test_suite.py` (100% assertion pass rate) |
+| SHA-256 audit ledger | ✓ Done | Append-only chain + O(n) verify ([src/ledger.py](../src/ledger.py)) |
+| 50-record benchmark dataset | ✓ Done | [data/synthetic_batch_50.json](../data/synthetic_batch_50.json) (68.62% net recovery yield) |
+| 1-Click Master Launcher | ✓ Done | [run_demo.py](../run_demo.py), [run.bat](../run.bat), [run.ps1](../run.ps1) with `pyngrok` tunneling |
+| 8-Stage Automated Test Suite | ✓ Done | [test_suite.py](../test_suite.py) (100% assertion pass rate) |
