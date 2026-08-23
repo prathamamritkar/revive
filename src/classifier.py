@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 _VALID_CLASSIFICATIONS = {c.value for c in FailureClassification}
 
 _SYSTEM_PROMPT = (
-    "You are RevPulse Sentinel — a Razorpay payment-failure classifier.\n\n"
+    "You are Revive — an intelligent payment-failure classifier.\n\n"
     "Given an unstructured text describing a payment failure, respond ONLY with a valid JSON object "
     "(no markdown, no commentary) matching this schema exactly:\n\n"
     "{\n"
@@ -324,5 +324,5 @@ class TelemetryClassifier:
             confidence=0.96,
             detected_intent=f"Deterministic CBS diagnostic signature for {event.event_type}",
             urgency_level="MEDIUM",
-            suggested_tone="REVPULSE_DETERMINISTIC_POLICY",
+            suggested_tone="REVIVE_DETERMINISTIC_POLICY",
         )

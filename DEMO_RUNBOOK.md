@@ -1,6 +1,6 @@
-# RevPulse Sentinel — 60-Second Hackathon Pitch Runbook
+# Revive — 60-Second Pitch Runbook
 
-> **Track 03: AI Revenue Recovery** — *Find revenue that’s slipping away and win it back.*
+> **AI Revenue Recovery** — *Find revenue that’s slipping away and win it back.*
 
 ## Pre-Demo Checklist (30 seconds)
 
@@ -15,18 +15,18 @@
 
 ---
 
-## 60-Second Pitch Tour (Mapped to Razorpay Evaluation Bar)
+## 60-Second Pitch Tour
 
 ### Step 1 — Problem Taste & Mission (Tab 1) · 10s
-1. Point to **TRACK 03 · AI REVENUE RECOVERY** banner: *"Find revenue that’s slipping away and win it back."*
-2. Point to **RAZORPAY EVALUATION BAR** card highlighting the 4 pillars:
+1. Point to **AI REVENUE RECOVERY** banner: *"Find revenue that’s slipping away and win it back."*
+2. Point to **ENTERPRISE COMPLIANT** card highlighting key pillars:
    - **Problem taste**: ₹2.1L exposed GMV across checkout drop-offs, mandate failures & B2B receivables.
    - **Build quality**: 100% reliable HMAC signature security & SHA-256 ledger chain.
    - **AI judgment**: Hybrid LLM intent extraction for ambiguous customer notes + MDP stopping invariants.
    - **Failure recovery**: P2P salary date locks & Hinglish Voice IVR call escalation.
 
 ### Step 2 — Autonomous AI Agent Decision Trace (Tab 1) · 10s
-1. Show the **AUTONOMOUS AI AGENT DECISION TRACE ENGINE** card (`RevPulse-Agent-01`).
+1. Show the **AUTONOMOUS AI AGENT DECISION TRACE ENGINE** card (`Revive-Agent-01`).
 2. Point to the **96% Agent Confidence Score** and 3-stage reasoning trace (Telemetry Audit $\rightarrow$ MDP Yield Reasoning $\rightarrow$ Multi-Channel Dispatch).
 3. Click **▶ EXECUTE EVALUATION BENCHMARK** — watch ₹1,45,200 recovered capital populate live (68.62% yield) across 50 audited events.
 
@@ -58,9 +58,9 @@
 
 ## Verification & Acceptance Criteria
 
-| Criterion | Razorpay Evaluation Target | Verified Status |
+| Criterion | Evaluation Target | Verified Status |
 | --- | --- | --- |
-| `python test_suite.py` 6 stages | All PASS | **100% PASS** |
+| `python test_suite.py` 8 stages | All PASS | **100% PASS** |
 | 50-Record Benchmark Yield | Measured Money Recovered ($\ge 65\%$) | **68.62%** (₹1,45,200.00) |
 | Operational Cost Ratio | $< 0.05\%$ of Recovered GMV | **0.011%** (₹16.20) |
 | Cryptographic Ledger Integrity | 100% Valid SHA-256 Hash Chain | **VALID** |

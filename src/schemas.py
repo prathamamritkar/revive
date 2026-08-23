@@ -33,7 +33,7 @@ class RecoveryState(str, Enum):
 
 class AgenticDecisionTrace(BaseModel):
     model_config = ConfigDict(frozen=True)
-    agent_id: str = "RevPulse-Agent-01"
+    agent_id: str = "Revive-Agent-01"
     telemetry_audit: str
     cbs_diagnosis: str
     fatigue_reasoning: str

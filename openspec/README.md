@@ -1,4 +1,4 @@
-# RevPulse Sentinel — OpenSpec Engineering Roadmap
+# Revive — OpenSpec Engineering Roadmap
 
 ## Versioned Specifications
 
@@ -47,10 +47,10 @@ MDP_EXPECTED_NET_LE_0    → HALT               (0 touches)
 | Hinglish WhatsApp dispatcher | ✓ Done | Twilio SDK + mock mode (`src/dispatcher.py`) |
 | Hinglish Voice IVR dispatcher | ✓ Done | Twilio Voice API TwiML `<Say language="hi-IN">` call synthesis |
 | Promise-to-Pay (PTP) tracker | ✓ Done | `register_ptp_commitment` & `POST /api/v1/ptp/commit` |
-| Razorpay Payment Link generation | ✓ Done | Real REST API `/v1/payment_links` integration |
-| Razorpay Virtual Account generation | ✓ Done | Real REST API `/v1/virtual_accounts` integration |
+| 1-Click Payment Link generation | ✓ Done | Real REST API `/v1/payment_links` integration |
+| Virtual Account generation | ✓ Done | Real REST API `/v1/virtual_accounts` integration |
 | Webhook Auto-Reconciliation | ✓ Done | HMAC SHA-256 signature verification & auto-ledger block creation |
 | SHA-256 audit ledger | ✓ Done | Append-only chain + O(n) verify (`src/ledger.py`) |
 | 50-record benchmark dataset | ✓ Done | `data/synthetic_batch_50.json` (68.62% net recovery yield) |
 | 1-Click Master Launcher | ✓ Done | `run_demo.py`, `run.bat`, `run.ps1` with `pyngrok` tunneling |
-| 6-Stage Automated Test Suite | ✓ Done | `test_suite.py` (100% assertion pass rate) |
+| 8-Stage Automated Test Suite | ✓ Done | `test_suite.py` (100% assertion pass rate) |

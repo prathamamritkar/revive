@@ -1,4 +1,4 @@
-# RevPulse Sentinel — Central Master Architecture & Agent Guide (SSOT)
+# Revive — Central Master Architecture & Agent Guide (SSOT)
 
 ## Core Invariant
 
@@ -24,7 +24,7 @@
 | --- | --- |
 | **Classifier** | May parse error codes and CBS registry; **cannot** schedule actions or mutate ledger. |
 | **Orchestrator** | Enforces TRAI gate, PTP freeze, MDP stopping rules, and ExecutionMode signoff; **cannot** dispatch directly. |
-| **Dispatcher** | May send WhatsApp messages, trigger Twilio Voice IVR calls, or create Razorpay links/accounts; **cannot** mutate ledger or retry policy. |
+| **Dispatcher** | May send WhatsApp messages, trigger Twilio Voice IVR calls, or create payment links/accounts; **cannot** mutate ledger or retry policy. |
 | **Ledger** | Append-only SHA-256 chain; **cannot** be mutated after `record_entry()`. |
 | **Dashboard** | Presentation layer; toggles theme and automation mode; **cannot** bypass stopping invariants. |
 
@@ -38,10 +38,10 @@
 | **OCP** | Extensible strategy registries for LLMs, Diagnostic Rules, Recovery Strategies, Channels, and Webhooks. | `src/classifier.py`, `src/orchestrator.py`, `src/dispatcher.py`, `app.py` |
 | **KISS** | Epoch time math `(epoch_time + 19800) % 86400 // 3600`, simplified route extractions, single-pass ledger summary. | `src/orchestrator.py`, `app.py`, `src/ledger.py` |
 | **LSP** | Behavioral subtyping for channel handlers (`SilentApiRetryChannelHandler`). | `src/dispatcher.py` |
-| **ISP** | Segregated role protocols (`IPaymentLinkGenerator`, `IVirtualAccountGenerator`, `ISubscriptionManager`, `IWebhookVerifier`, `IDispatcher`, `IDispatchHistory`). | `src/interfaces.py`, `src/rzp_client.py` |
+| **ISP** | Segregated role protocols (`IPaymentLinkGenerator`, `IVirtualAccountGenerator`, `ISubscriptionManager`, `IWebhookVerifier`, `IDispatcher`, `IDispatchHistory`). | `src/interfaces.py`, `src/payment_client.py` |
 | **PoLA** | Canonical `SentinelDispatcher` naming, state-aware PTP amounts, explicit keyword boundaries. | `src/dispatcher.py`, `src/orchestrator.py` |
 | **Fail-Safe Defaults** | Uncertain/missing ML classifications default to `TERMINAL_AUTH_REJECTED` (0-touch halt). | `src/classifier.py` |
-| **Defense in Depth** | Missing `X-Razorpay-Signature` headers are explicitly rejected (HTTP 401) when secrets are active. | `app.py` |
+| **Defense in Depth** | Missing `X-Webhook-Signature` headers are explicitly rejected (HTTP 401) when secrets are active. | `app.py` |
 | **Immutability** | `model_config = ConfigDict(frozen=True)` on ledger entries, decision traces, and telemetry events. | `src/schemas.py` |
 | **Idempotency** | Re-processing webhooks for `RECOVERED` entities returns `None` with 0 duplicate dispatches. | `src/orchestrator.py` |
 | **CQS** | Pure inspection query `inspect_ptp_status()` separated from command `evaluate_p2p_compliance()`. | `src/orchestrator.py` |
@@ -51,7 +51,7 @@
 | **Explainability First** | 4-step structured rationale chains (`reasoning_chain`) embedded into `AgenticDecisionTrace`. | `src/schemas.py`, `src/orchestrator.py` |
 | **Auditability by Design** | Single-block SHA-256 cryptographic proofs via `verify_block_proof()` and `/api/v1/ledger/audit/{log_id}`. | `src/ledger.py`, `app.py` |
 | **12-Factor App** | Environment config (`HOST`, `PORT`), unbuffered `sys.stdout` event logs, FastAPI `lifespan` disposability. | `src/constants.py`, `app.py` |
-| **Graceful Degradation** | API/IVR outages fall back to synthetic mocks tagged with `"is_degraded_fallback": True`. | `src/rzp_client.py`, `src/dispatcher.py` |
+| **Graceful Degradation** | API/IVR outages fall back to synthetic mocks tagged with `"is_degraded_fallback": True`. | `src/payment_client.py`, `src/dispatcher.py` |
 | **Chronological Compliance** | TRAI gate bounds (08:00–19:00 IST) defer non-compliant dispatches by `+12h` (`is_trai_deferred: True`). | `src/orchestrator.py` |
 | **Poka-Yoke** | Defect prevention in inputs: phone normalization (`whatsapp:+91...`), `ValueError` on non-positive PTP inputs. | `src/utils.py`, `src/orchestrator.py` |
 | **SSOT** | Unified entity lifecycle inspection getter `get_entity_ssot()` and `/api/v1/entity/{entity_id}/ssot` API. | `src/orchestrator.py`, `app.py` |
@@ -78,7 +78,7 @@
 | `src/orchestrator.py` | Recovery policy layer | Scheduling, TRAI gate, PTP freeze, stopping rules, MDP, Agentic trace, SSOT |
 | `src/ledger.py` | Audit layer | Append-only SHA-256 chain + Block proof verifier |
 | `src/dispatcher.py` | Communication layer | `SentinelDispatcher` (WhatsApp Hinglish + Twilio Voice IVR) |
-| `src/rzp_client.py` | Integration layer | Razorpay REST API (Links, Retries, Virtual Accounts) & Webhook verifier |
+| `src/payment_client.py` | Integration layer | REST API client (Links, Retries, Virtual Accounts) & Webhook verifier |
 | `app.py` | API boundary | FastAPI routes, live webhook auto-reconciler, readiness probes, SSOT routes |
 | `dashboard.py` | Presentation layer | Streamlit 5-tab command center UI & mode controls |
 | `run_demo.py` | Automated orchestrator | Python master launcher managing FastAPI, Streamlit, and pyngrok tunnels |
@@ -92,7 +92,7 @@
 Run `python test_suite.py` to verify all 8 stages:
 1. Telemetry Classifier + CBS health diagnosis
 2. Orchestrator policy gates + stopping invariants
-3. Razorpay Payment Link + Virtual Account generation
+3. 1-Click Payment Link + Virtual Account generation
 4. WhatsApp Hinglish dispatcher (mock & Twilio mode)
 5. Hinglish Voice IVR call dispatch & Promise-to-Pay (PTP) freeze
 6. SHA-256 ledger integrity over 50-record benchmark batch

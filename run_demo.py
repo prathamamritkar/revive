@@ -54,16 +54,16 @@ def setup_tunnel():
         tunnel = ngrok.connect(8000, bind_tls=True)
         public_url = tunnel.public_url
         print(f"  [TUNNEL LIVE] Public URL: {public_url}")
-        print(f"  [RAZORPAY WEBHOOK URL]: {public_url}/webhook/razorpay")
+        print(f"  [WEBHOOK URL]: {public_url}/webhook/payment")
         return public_url
     except Exception as e:
         print(f"  [TUNNEL NOTICE] pyngrok fallback: {e}")
-        print("  [LOCAL WEBHOOK URL]: http://localhost:8000/webhook/razorpay")
+        print("  [LOCAL WEBHOOK URL]: http://localhost:8000/webhook/payment")
         return "http://localhost:8000"
 
 def main():
     print("=" * 80)
-    print(" REVPULSE SENTINEL — AUTONOMOUS 1-CLICK DEMO ORCHESTRATOR")
+    print(" REVIVE — AUTONOMOUS 1-CLICK DEMO ORCHESTRATOR")
     print("=" * 80)
 
     py_exe = get_python_executable()
@@ -78,7 +78,7 @@ def main():
     print("=" * 80)
     print(f"  * Streamlit Command Center : http://localhost:8501")
     print(f"  * FastAPI OpenAPI Specs    : http://localhost:8000/docs")
-    print(f"  * Live Razorpay Webhook URL: {public_url}/webhook/razorpay")
+    print(f"  * Live Webhook URL         : {public_url}/webhook/payment")
     print(f"  * Health Observability Probe: http://localhost:8000/api/v1/readiness")
     print("=" * 80)
 

@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.schemas import TelemetryEvent, DispatchRequest, PTPCommitRequest, RecoveryState, ExecutionMode
-from src.orchestrator import RevPulseOrchestrator
+from src.orchestrator import ReviveOrchestrator
 from src.dispatcher import WhatsAppDispatcher
 from src.utils import verify_hmac_sha256, utc_now_iso
 
@@ -32,7 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger("app")
 
 
-def verify_razorpay_signature(raw_body: bytes, signature: str, secret: str) -> bool:
+def verify_webhook_signature(raw_body: bytes, signature: str, secret: str) -> bool:
     return verify_hmac_sha256(raw_body, signature, secret)
 
 
@@ -67,7 +67,7 @@ class BaseWebhookEventHandler(ABC):
         bank: str,
         entity: dict,
         body: dict,
-        orchestrator: RevPulseOrchestrator,
+        orchestrator: ReviveOrchestrator,
     ) -> Dict[str, Any]:
         pass
 
@@ -88,7 +88,7 @@ class PaymentSuccessWebhookHandler(BaseWebhookEventHandler):
         bank: str,
         entity: dict,
         body: dict,
-        orchestrator: RevPulseOrchestrator,
+        orchestrator: ReviveOrchestrator,
     ) -> Dict[str, Any]:
         state = orchestrator.state_store.get(entity_id, {"attempts": 1, "status": RecoveryState.DISPATCHED})
         state["status"] = RecoveryState.RECOVERED
@@ -127,7 +127,7 @@ class PaymentFailedWebhookHandler(BaseWebhookEventHandler):
         bank: str,
         entity: dict,
         body: dict,
-        orchestrator: RevPulseOrchestrator,
+        orchestrator: ReviveOrchestrator,
     ) -> Dict[str, Any]:
         error_code = entity.get("error_code") or entity.get("error_reason") or "GATEWAY_TIMEOUT"
         event = TelemetryEvent(
@@ -174,7 +174,7 @@ class WebhookHandlerRegistry:
         bank: str,
         entity: dict,
         body: dict,
-        orchestrator: RevPulseOrchestrator,
+        orchestrator: ReviveOrchestrator,
     ) -> Dict[str, Any]:
         for h in self.handlers:
             if h.supports(event_name):
@@ -184,13 +184,13 @@ class WebhookHandlerRegistry:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("RevPulse Sentinel starting up in %s mode on %s:%s", APP_ENV, HOST, PORT)
+    logger.info("Revive starting up in %s mode on %s:%s", APP_ENV, HOST, PORT)
     yield
-    logger.info("RevPulse Sentinel shutting down gracefully.")
+    logger.info("Revive shutting down gracefully.")
 
 
 app = FastAPI(
-    title="RevPulse Sentinel — Razorpay AI Revenue Recovery Engine",
+    title="Revive — AI Revenue Recovery Engine",
     description=(
         "Telemetry-Aware Mandate & Payment Degradation Recovery Sentinel. "
         "4-layer autonomous engine: CBS Classifier → Policy Orchestrator → Hinglish Dispatcher → SHA-256 Ledger."
@@ -198,7 +198,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    contact={"name": "RevPulse Sentinel", "url": "https://github.com"},
+    contact={"name": "Revive", "url": "https://github.com"},
     license_info={"name": "MIT"},
     lifespan=lifespan,
 )
@@ -211,7 +211,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-orchestrator = RevPulseOrchestrator()
+orchestrator = ReviveOrchestrator()
 dispatcher = WhatsAppDispatcher()
 webhook_registry = WebhookHandlerRegistry()
 seen_event_ids: set = set()
@@ -220,7 +220,7 @@ seen_event_ids: set = set()
 @app.get("/")
 def read_root():
     return {
-        "service": "RevPulse Sentinel Engine",
+        "service": "Revive Engine",
         "status": "ONLINE",
         "timestamp_utc": utc_now_iso(),
         "trai_enforced": os.getenv("TRAI_ENFORCE_TIME_GATE", "true"),
@@ -278,17 +278,19 @@ def readiness_probe():
     }
 
 
+@app.post("/webhook/payment")
 @app.post("/webhook/razorpay")
-async def razorpay_webhook(request: Request, background_tasks: BackgroundTasks):
+@app.post("/webhook/revive")
+async def payment_webhook(request: Request, background_tasks: BackgroundTasks):
     try:
         raw_body = await request.body()
-        sig_header = request.headers.get("X-Razorpay-Signature", "")
-        sec_key = os.getenv("RAZORPAY_WEBHOOK_SECRET", "revpulse_secret_2026")
+        sig_header = request.headers.get("X-Webhook-Signature", "") or request.headers.get("X-Razorpay-Signature", "") or request.headers.get("X-Revive-Signature", "")
+        sec_key = os.getenv("REVIVE_WEBHOOK_SECRET", os.getenv("RAZORPAY_WEBHOOK_SECRET", "revive_secret_2026"))
         if sig_header:
-            if not verify_razorpay_signature(raw_body, sig_header, sec_key):
-                raise HTTPException(status_code=401, detail="Invalid Razorpay webhook HMAC signature")
-        elif sec_key and sec_key not in ["", "dummy_secret"] and os.getenv("RAZORPAY_WEBHOOK_REQUIRE_SIG", "true").lower() in ["true", "1"]:
-            raise HTTPException(status_code=401, detail="Missing required X-Razorpay-Signature header")
+            if not verify_webhook_signature(raw_body, sig_header, sec_key):
+                raise HTTPException(status_code=401, detail="Invalid webhook HMAC signature")
+        elif sec_key and sec_key not in ["", "dummy_secret"] and os.getenv("REVIVE_WEBHOOK_REQUIRE_SIG", "true").lower() in ["true", "1"]:
+            raise HTTPException(status_code=401, detail="Missing required X-Webhook-Signature header")
 
         body = json.loads(raw_body.decode("utf-8")) if raw_body else await request.json()
         event_id = body.get("event_id", "")

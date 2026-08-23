@@ -17,7 +17,7 @@ def generate_twiml_voice_recovery(customer_name: str, amount_inr: float, referen
 <Response>
     <Say language="hi-IN" voice="Polly.Aditi">
         Namaste {customer_name}. Aapka order reference {reference_id[-4:]} ka payment network issue ki wajah se complete nahi ho paya.
-        Humne aapke WhatsApp par ek secure Razorpay payment link bhej diya hai. 
+        Humne aapke WhatsApp par ek secure payment link bhej diya hai. 
         Kripya link par click karke payment confirm karein. Dhanyawad!
     </Say>
 </Response>"""
@@ -40,7 +40,7 @@ class VoiceIVRChannelHandler(BaseChannelHandler):
         return channel == ChannelType.VOICE_IVR_NUDGE
 
     def handle(self, request: DispatchRequest, dispatcher: 'SentinelDispatcher', target: str, content: str) -> Dict[str, Any]:
-        voice_script = f"IVR OUTBOUND CALL [Hinglish]: Namaste! Razorpay AI Recovery Assistant calling for {target}. {content}"
+        voice_script = f"IVR OUTBOUND CALL [Hinglish]: Namaste! Revive AI Recovery Assistant calling for {target}. {content}"
         if dispatcher.is_live_twilio:
             try:
                 from twilio.rest import Client
@@ -101,8 +101,8 @@ class SilentApiRetryChannelHandler(BaseChannelHandler):
     def handle(self, request: DispatchRequest, dispatcher: 'SentinelDispatcher', target: str, content: str) -> Dict[str, Any]:
         return dispatcher._log(build_dispatch_entry(
             dispatch_id=dispatcher._next_mock_id("silent_api_mock"),
-            to="RAZORPAY_RETRY_ENGINE",
-            frm="REVPULSE_SILENT_API",
+            to="REVIVE_RETRY_ENGINE",
+            frm="REVIVE_SILENT_API",
             message=content,
             payment_url=request.payment_url,
             channel=request.channel.value,

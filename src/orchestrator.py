@@ -11,7 +11,7 @@ from src.schemas import (
 )
 from src.classifier import TelemetryClassifier
 from src.ledger import AuditLedger
-from src.rzp_client import RazorpayClientWrapper
+from src.payment_client import PaymentClientWrapper
 from src.dispatcher import WhatsAppDispatcher
 from src.constants import (
     MAX_RECOVERY_ATTEMPTS, PTP_GRACE_SECONDS, TRAI_DEFER_SECONDS, CHANNEL_COSTS_PAISE,
@@ -51,7 +51,7 @@ class BaseRecoveryStrategy(ABC):
 
     @abstractmethod
     def build_action_details(
-        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: RazorpayClientWrapper
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
     ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
         pass
 
@@ -61,12 +61,12 @@ class SilentRetryStrategy(BaseRecoveryStrategy):
         return classification == FailureClassification.TRANSIENT_NETWORK_DOWN and attempt == 1
 
     def build_action_details(
-        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: RazorpayClientWrapper
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
     ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
         scheduled_time = now + (45 * 60)
         channel = ChannelType.SILENT_API_RETRY
         payload = {
-            "action": "RAZORPAY_SUBSCRIPTION_RETRY",
+            "action": "SUBSCRIPTION_RETRY",
             "entity_id": entity_id,
             "subscription_id": entity_id,
         }
@@ -79,13 +79,13 @@ class VoiceIVRStrategy(BaseRecoveryStrategy):
         return attempt == 3
 
     def build_action_details(
-        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: RazorpayClientWrapper
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
     ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
         scheduled_time = now + (30 * 60)
         channel = ChannelType.VOICE_IVR_NUDGE
         plink = rzp_client.create_payment_link(entity_id, event.gross_amount_paise, "Escalated Voice Nudge")
         payload = {
-            "message": f"Namaste! Razorpay Automated Voice Assistant calling regarding pending payment of Rs. {amount_inr:,.2f}. Press 1 to receive payment link.",
+            "message": f"Namaste! Revive Automated Voice Assistant calling regarding pending payment of Rs. {amount_inr:,.2f}. Press 1 to receive payment link.",
             "payment_url": plink["short_url"],
             "expire_hours": 24,
         }
@@ -98,7 +98,7 @@ class BalanceLowStrategy(BaseRecoveryStrategy):
         return classification == FailureClassification.TRANSIENT_BALANCE_LOW
 
     def build_action_details(
-        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: RazorpayClientWrapper
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
     ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
         scheduled_time = now + (24 * 3600)
         channel = ChannelType.WHATSAPP_HINGLISH
@@ -117,13 +117,13 @@ class B2BInvoiceStrategy(BaseRecoveryStrategy):
         return classification == FailureClassification.B2B_OVERDUE_INVOICE
 
     def build_action_details(
-        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: RazorpayClientWrapper
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
     ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
         scheduled_time = now + 3600
         channel = ChannelType.WHATSAPP_HINGLISH
         va = rzp_client.generate_virtual_account(entity_id)
         payload = {
-            "message": f"Attention Accounts Team: Invoice #{entity_id} (Rs. {amount_inr:,.2f}) is overdue ({event.invoice_age_days or 15} days). Execute instant NEFT clearance via Razorpay Virtual Account: UPI ID {va['upi_id']} / A/C {va['account_number']} (IFSC: {va['ifsc']}).",
+            "message": f"Attention Accounts Team: Invoice #{entity_id} (Rs. {amount_inr:,.2f}) is overdue ({event.invoice_age_days or 15} days). Execute instant NEFT clearance via Revive Virtual Account: UPI ID {va['upi_id']} / A/C {va['account_number']} (IFSC: {va['ifsc']}).",
             "virtual_account_upi": va["upi_id"],
             "virtual_account_no": va["account_number"],
         }
@@ -136,7 +136,7 @@ class DefaultCheckoutStrategy(BaseRecoveryStrategy):
         return True
 
     def build_action_details(
-        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: RazorpayClientWrapper
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
     ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
         scheduled_time = now + (15 * 60)
         channel = ChannelType.WHATSAPP_HINGLISH
@@ -199,11 +199,12 @@ class PromiseToPayEngine:
         return "WITHIN_GRACE_PERIOD"
 
 
-class RevPulseOrchestrator:
+class ReviveOrchestrator:
     def __init__(self, classifier: Optional[TelemetryClassifier] = None):
         self.classifier = classifier or TelemetryClassifier()
         self.ledger = AuditLedger()
-        self.rzp_client = RazorpayClientWrapper()
+        self.rzp_client = PaymentClientWrapper()
+        self.payment_client = self.rzp_client
         self.dispatcher = WhatsAppDispatcher()
         self.ptp_engine = PromiseToPayEngine()
         self.MAX_ATTEMPTS = MAX_RECOVERY_ATTEMPTS
@@ -236,7 +237,7 @@ class RevPulseOrchestrator:
             "step_4_execution_mode": f"Mode={self.mode.value}. Auto-executed={auto_exec}.",
         }
         return AgenticDecisionTrace(
-            agent_id="RevPulse-Agent-01",
+            agent_id="Revive-Agent-01",
             telemetry_audit=f"Evaluated telemetry for {event.entity_id} ({event.event_type}). Amount: INR {amount_inr:,.2f}.",
             cbs_diagnosis=f"Bank {event.issuing_bank or 'UNKNOWN'} status: {bank_status}. Classified error code '{event.raw_error_code}' as {classification.value}.",
             fatigue_reasoning=f"Attempt {attempt}/{self.MAX_ATTEMPTS}. MDP yield: P(success)={prob:.2f}, E[Rec]=INR {exp_rec/100:,.2f}, Cost=INR {tot_cost/100:,.2f}, E[Net]=INR {net_yield/100:,.2f}. Selected channel {channel.value}.",

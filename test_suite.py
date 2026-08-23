@@ -5,18 +5,17 @@ from typing import Optional
 from datetime import datetime, timezone
 from src.schemas import TelemetryEvent, FailureClassification, ChannelType, RecoveryState
 from src.classifier import TelemetryClassifier
-from src.orchestrator import RevPulseOrchestrator
+from src.orchestrator import ReviveOrchestrator
 from src.ledger import AuditLedger
-from src.rzp_client import RazorpayClientWrapper
-from src.dispatcher import WhatsAppDispatcher, DispatchRequest
+from src.payment_client import PaymentClientWrapper
 
 def run_all_tests():
     print("=" * 80)
-    print(" REVPULSE SENTINEL: AUTOMATED TEST SUITE & SYSTEM VERIFICATION")
+    print(" REVIVE: AUTOMATED TEST SUITE & SYSTEM VERIFICATION")
     print("=" * 80)
 
     from src.classifier import analyze_unstructured_dropoff
-    from app import verify_razorpay_signature
+    from app import verify_webhook_signature
     from src.schemas import ExecutionMode
 
     # 1. Test Classifier & Hybrid AI Intent
@@ -53,9 +52,9 @@ def run_all_tests():
     print("  [PASS] Hybrid AI Intent & Sentiment Classifier validated.")
 
     # Test Webhook HMAC Security
-    sig_valid = verify_razorpay_signature(b'{"event":"payment.failed"}', "f14545084931a238b725c81b5e5893e4e94b8e23f03b570cb3c7e39e5641fb00", "revpulse_secret_2026")
+    sig_valid = verify_webhook_signature(b'{"event":"payment.failed"}', "f14545084931a238b725c81b5e5893e4e94b8e23f03b570cb3c7e39e5641fb00", "revive_secret_2026")
     assert sig_valid is True or sig_valid is False
-    print("  [PASS] Razorpay Webhook HMAC-SHA256 Security validated.")
+    print("  [PASS] Webhook HMAC-SHA256 Security validated.")
 
     # Test PromiseToPayEngine & TwiML Voice Generator
     from src.orchestrator import PromiseToPayEngine
@@ -70,7 +69,7 @@ def run_all_tests():
 
     # 2. Test Orchestrator & Stopping Invariants
     print("\n[2/8] Testing Orchestration, Policy Gates & Stopping Rules...")
-    orchestrator = RevPulseOrchestrator(classifier=classifier)
+    orchestrator = ReviveOrchestrator(classifier=classifier)
     
     # Process terminal - should halt immediately
     act_term = orchestrator.process_event(evt_term)
@@ -92,16 +91,16 @@ def run_all_tests():
     assert orchestrator.state_store[evt_hdfc.entity_id]["status"] == RecoveryState.DISPATCHED
     print("  [PASS] Agentic auto-dispatch & Manual operator approval queue validated.")
 
-    # 3. Test Razorpay Client Link & Virtual Account Generation
-    print("\n[3/8] Testing Razorpay 1-Click Link & Virtual Account Generation...")
-    rzp = RazorpayClientWrapper()
+    # 3. Test Payment Client Link & Virtual Account Generation
+    print("\n[3/8] Testing 1-Click Payment Link & Virtual Account Generation...")
+    rzp = PaymentClientWrapper()
     plink = rzp.create_payment_link("pay_123", 149900, "Cart Checkout Recovery")
     assert plink["short_url"].startswith("http"), "Payment link short_url missing"
-    print(f"  [PASS] Razorpay Payment Link generated: {plink['short_url']}")
+    print(f"  [PASS] Payment Link generated: {plink['short_url']}")
 
     va = rzp.generate_virtual_account("inv_456")
     assert "upi_id" in va and "account_number" in va, "Virtual account missing credentials"
-    print(f"  [PASS] Razorpay Virtual Account generated: {va['upi_id']}")
+    print(f"  [PASS] Virtual Account generated: {va['upi_id']}")
 
     # 4. Test WhatsApp Hinglish Dispatcher
     print("\n[4/8] Testing Hinglish WhatsApp Dispatcher...")
@@ -119,7 +118,7 @@ def run_all_tests():
     print("\n[5/8] Testing Hinglish Voice IVR & Promise-to-Pay (PTP) Freeze...")
     voice_res = dispatcher.dispatch(DispatchRequest(
         phone_number="+919876543210",
-        message="Namaste! Razorpay Automated Voice Assistant calling regarding pending payment.",
+        message="Namaste! Revive Automated Voice Assistant calling regarding pending payment.",
         payment_url=plink["short_url"],
         channel=ChannelType.VOICE_IVR_NUDGE
     ))
@@ -139,7 +138,7 @@ def run_all_tests():
         batch_data = json.load(f)
     events = [TelemetryEvent(**d) for d in batch_data]
     
-    orch_batch = RevPulseOrchestrator()
+    orch_batch = ReviveOrchestrator()
     chain = orch_batch.execute_mock_batch(events)
     summary = orch_batch.ledger.get_summary()
 
@@ -197,7 +196,7 @@ def run_all_tests():
         def build_action_details(self, event, entity_id, amount_inr, now, rzp_client):
             return now + 60, ChannelType.HUMAN_ESCALATION, {"message": "VIP B2B Escalation"}, "VIP Strategy Applied"
 
-    orch_ocp = RevPulseOrchestrator()
+    orch_ocp = ReviveOrchestrator()
     orch_ocp.register_custom_strategy(CustomVIPStrategy(), priority_index=0)
     b2b_evt = _make_event("evt_vip", "inv_vip", "HDFC", "GATEWAY_TIMEOUT")
     b2b_evt = TelemetryEvent(
@@ -321,7 +320,7 @@ def run_all_tests():
     print("  [PASS] Fail-Safe Defaults, Defense in Depth, Immutability, Idempotency, CQS, HITL, MDP, Evidence-Bound, Explainability, Auditability, 12-Factor, Graceful Degradation, Chronological Compliance, Poka-Yoke, SSOT, Context Map & Reproducibility verified.")
 
     print("\n" + "=" * 80)
-    print(" ALL REVPULSE SENTINEL ARCHITECTURAL & ENTERPRISE PRINCIPLES PASSED FLAWLESSLY")
+    print(" ALL REVIVE ARCHITECTURAL & ENTERPRISE PRINCIPLES PASSED FLAWLESSLY")
     print("=" * 80)
 
 if __name__ == "__main__":

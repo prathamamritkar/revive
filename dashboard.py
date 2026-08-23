@@ -5,19 +5,19 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from src.schemas import TelemetryEvent, DispatchRequest, ChannelType, FailureClassification, ExecutionMode
-from src.orchestrator import RevPulseOrchestrator
+from src.orchestrator import ReviveOrchestrator
 from src.dispatcher import generate_hinglish_voice_twiml
 
 st.set_page_config(
-    page_title="RevPulse Sentinel — Razorpay Revenue Recovery Engine",
+    page_title="Revive — Revenue Recovery Engine",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ─── Terminology Dictionary (Standardized Enterprise Invariants) ───────────────
-APP_NAME           = "REVPULSE SENTINEL"
-PLATFORM_NAME      = "RAZORPAY PLATFORM"
-TRACK_NAME         = "TRACK 03 · REVENUE RECOVERY"
+APP_NAME           = "REVIVE"
+PLATFORM_NAME      = "PAYMENT PLATFORM"
+TRACK_NAME         = "REVENUE RECOVERY"
 
 SURFACE_CHECKOUT   = "Checkout Drop-off"
 SURFACE_MANDATE    = "Subscription Mandate Failure"
@@ -607,7 +607,7 @@ div[data-testid="stDataFrame"] {{
 # ─── Engine Initialization & State Management ──────────────────────────────────
 @st.cache_resource
 def get_engine():
-    engine = RevPulseOrchestrator()
+    engine = ReviveOrchestrator()
     b_path = os.path.join(os.path.dirname(__file__), "data", "synthetic_batch_50.json")
     if os.path.exists(b_path):
         with open(b_path, "r") as f:
@@ -682,13 +682,13 @@ st.markdown(f"""
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span class="badge badge-cyan">{TRACK_NAME}</span>
-            <span class="badge badge-emerald">RAZORPAY EVALUATION BAR COMPLIANT</span>
+            <span class="badge badge-emerald">ENTERPRISE COMPLIANT</span>
             <span class="badge {mode_badge}">{mode_label}</span>
         </div>
         <span style="font-weight:800; font-size:0.88rem; color:rgb(var(--color-emerald));">Find revenue that’s slipping away and win it back.</span>
     </div>
     <h1 style="font-size: clamp(1.6rem, 2.8vw, 2.2rem); margin: 0 0 6px 0; font-weight: 800; letter-spacing: -0.03em;">
-        RevPulse Autonomous Revenue Recovery Sentinel
+        Revive Autonomous Revenue Recovery Sentinel
     </h1>
     <p style="color: rgb(var(--color-muted)); font-size: 0.88rem; margin: 0 0 14px 0; line-height: 1.45;">
         Detects revenue at risk, determines the right intervention, and executes a bounded recovery workflow across payment degradation, checkout drop-offs, failed subscriptions, and overdue receivables.
@@ -802,7 +802,7 @@ with tabs[0]:
         (v2, "card-rose",    SURFACE_MANDATE,           mandate_rec, mandate_exp, "badge-rose",    "15%–35% ARR LOST",
          "Telemetry Bank Health Retry (+45m)", "Bank maintenance outage window"),
         (v3, "card-cyan",    SURFACE_INVOICE,           invoice_rec, invoice_exp, "badge-cyan",    "12%–20% CAPITAL DRAG",
-         "Razorpay Virtual Account (+1h)", "Unpaid B2B receivable invoice"),
+         "Revive Virtual Account (+1h)", "Unpaid B2B receivable invoice"),
     ]
     for col, acc, title, rec_val, exp_val, bc, btxt, action_txt, cause_txt in surfaces:
         with col:
@@ -889,7 +889,7 @@ with tabs[1]:
     st.markdown("""
     <div class="tactile-card" style="border-left:4px solid rgb(var(--color-violet)); margin-bottom:16px;">
         <div style="font-weight:800; font-size:0.88rem; color:rgb(var(--color-text)); margin-bottom:6px;">
-            7 RECOVERY DIRECTIONS NATIVELY COVERED (RAZORPAY TRACK 03 SPECIFICATION)
+            7 RECOVERY DIRECTIONS NATIVELY COVERED (REVENUE RECOVERY SPECIFICATION)
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
             <span class="badge badge-cyan">1. Payment degradation → root cause</span>
@@ -1042,7 +1042,7 @@ with tabs[1]:
                 <span class="badge badge-emerald">03</span>
                 <span style="font-weight:800; font-size:0.88rem; color:rgb(var(--color-text));">Layer 3: Conversational Hinglish Dispatcher</span>
             </div>
-            <p style="font-size:0.8rem; color:rgb(var(--color-muted)); line-height:1.45; margin:0;">Dispatches empathetic, context-aware Hinglish copy with dynamically generated 1-click Razorpay payment links (plink_...) or IVR voice nudges.</p>
+            <p style="font-size:0.8rem; color:rgb(var(--color-muted)); line-height:1.45; margin:0;">Dispatches empathetic, context-aware Hinglish copy with dynamically generated 1-click payment links (plink_...) or IVR voice nudges.</p>
         </div>
         """, unsafe_allow_html=True)
     with t2:
@@ -1190,7 +1190,7 @@ with tabs[3]:
                 <div class="ui-label" style="font-size:0.75rem;">CART ABANDONED</div>
                 <span class="badge badge-cyan">WHATSAPP 1-CLICK</span>
             </div>
-            <p style="font-size:0.78rem; color:rgb(var(--color-muted)); line-height:1.45; margin:0; word-break:break-word;">Dispatches signed 1-click Razorpay payment link via Hinglish WhatsApp.</p>
+            <p style="font-size:0.78rem; color:rgb(var(--color-muted)); line-height:1.45; margin:0; word-break:break-word;">Dispatches signed 1-click payment link via Hinglish WhatsApp.</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("RUN CHECKOUT TEST", key="btn_scen_cart"):
@@ -1222,7 +1222,7 @@ with tabs[3]:
                 <div class="ui-label" style="font-size:0.75rem;">B2B INVOICE</div>
                 <span class="badge badge-violet">VIRTUAL ACCOUNT</span>
             </div>
-            <p style="font-size:0.78rem; color:rgb(var(--color-muted)); line-height:1.45; margin:0; word-break:break-word;">Generates auto-reconciling Razorpay Virtual Account details.</p>
+            <p style="font-size:0.78rem; color:rgb(var(--color-muted)); line-height:1.45; margin:0; word-break:break-word;">Generates auto-reconciling Virtual Account details.</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("RUN INVOICE TEST", key="btn_scen_b2b"):
@@ -1369,7 +1369,7 @@ with tabs[3]:
                     <span class="badge badge-subtle">Polly.Aditi (hi-IN)</span>
                 </div>
                 <div style="font-size:0.8rem; color:rgb(var(--color-text)); line-height:1.4;">
-                    Spoken Script: "Namaste {v_name}. Aapka Razorpay order reference {v_order[-4:]} ka payment network timeout ki wajah se complete nahi ho paya. Humne WhatsApp par payment link bhej diya hai..."
+                    Spoken Script: "Namaste {v_name}. Aapka order reference {v_order[-4:]} ka payment network timeout ki wajah se complete nahi ho paya. Humne WhatsApp par payment link bhej diya hai..."
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1392,7 +1392,7 @@ with tabs[3]:
                     plink_html = f"""
                     <div class="rzp-embed">
                         <div style="display:flex; align-items:center; justify-content:space-between;">
-                            <span style="font-weight:800; color:rgb(var(--color-cyan)); font-size:0.75rem;">RAZORPAY 1-CLICK LINK</span>
+                            <span style="font-weight:800; color:rgb(var(--color-cyan)); font-size:0.75rem;">REVIVE 1-CLICK LINK</span>
                             <span class="badge badge-emerald">INSTANT UPI</span>
                         </div>
                         <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:rgb(var(--color-muted)); margin:4px 0 6px 0; word-break:break-all;">{item["payment_url"]}</div>
@@ -1402,7 +1402,7 @@ with tabs[3]:
                 chat_messages_html += f"""
                 <div class="chat-bubble">
                     <div class="chat-meta">
-                        <span>REVPULSE AGENT</span>
+                        <span>REVIVE AGENT</span>
                         <span>{item.get('timestamp', '')}</span>
                     </div>
                     {item['message']}
@@ -1414,10 +1414,10 @@ with tabs[3]:
         <div class="phone-frame" style="margin-top: 20px;">
             <div class="wa-header">
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <div class="wa-avatar">RZP</div>
+                    <div class="wa-avatar">REV</div>
                     <div>
-                        <div style="font-weight:800; font-size:0.88rem; color:rgb(var(--color-text));">RevPulse Recovery Agent</div>
-                        <div style="font-size:0.72rem; color:rgb(var(--color-emerald)); font-weight:700;">ONLINE · RAZORPAY VERIFIED</div>
+                        <div style="font-weight:800; font-size:0.88rem; color:rgb(var(--color-text));">Revive Recovery Agent</div>
+                        <div style="font-size:0.72rem; color:rgb(var(--color-emerald)); font-weight:700;">ONLINE · VERIFIED</div>
                     </div>
                 </div>
                 <span class="badge badge-cyan">TRAI 08–19</span>
@@ -1495,7 +1495,7 @@ with tabs[4]:
             st.download_button(
                 label="EXPORT LEDGER CSV",
                 data=csv_data,
-                file_name="revpulse_ledger_audit.csv",
+                file_name="revive_ledger_audit.csv",
                 mime="text/csv",
                 key="dl_ledger_csv_clean"
             )
