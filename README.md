@@ -87,10 +87,10 @@ Classification Space C ∈ {
 
 ## Policy Governance & Mathematical MDP Invariants
 
-Revive models recovery as a constrained Markov Decision Process (MDP) to maximize Net Expected Recovered Capital ($E[R_{\text{net}}]$) while bounding operational costs and customer fatigue:
+Revive models recovery as a constrained Markov Decision Process (MDP) to maximize Net Expected Recovered Capital `E[R_net]` while bounding operational costs and customer fatigue:
 
 $$
-\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot \text{GrossAmount} - (C_{\text{channel}} + \lambda \cdot k)
+E[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot \text{GrossAmount} - (C_{\text{channel}} + \lambda \cdot k)
 $$
 
 Where:
@@ -101,8 +101,8 @@ Where:
 
 ### Non-Negotiable Invariant Rules
 
-1. **MDP Halting Threshold**: Outreach strictly halts (`HALTED_MDP_STOPPING_RULE`) at step $k^*$ when $E[R_{\text{net}}](k^*) \le 0$.
-2. **Attempt Ceiling**: Hard cap at $k = 3$ attempts (`HALTED_MAX_ATTEMPTS`).
+1. **MDP Halting Threshold**: Outreach strictly halts (`HALTED_MDP_STOPPING_RULE`) at step `k*` when `E[R_net](k*) <= 0`.
+2. **Attempt Ceiling**: Hard cap at `k = 3` attempts (`HALTED_MAX_ATTEMPTS`).
 3. **Terminal Prohibition**: Immediate 0-touch halt on `TERMINAL_ACCOUNT_CLOSED` and `TERMINAL_AUTH_REJECTED`.
 4. **TRAI Chrono-Gate Bounds**: Customer outreach is restricted to **08:00–19:00 IST**. Non-compliant schedules are deferred by `+12h` (`is_trai_deferred: True`).
 5. **Promise-to-Pay (PTP) Lock**: Active PTP commitments freeze outreach until `promised_timestamp_epoch`.

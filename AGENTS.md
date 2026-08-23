@@ -52,7 +52,7 @@
 | **Idempotency** | Re-processing webhooks for `RECOVERED` entities returns `None` with 0 duplicate dispatches. | [src/orchestrator.py](./src/orchestrator.py) |
 | **CQS** | Pure inspection query `inspect_ptp_status()` separated from command `evaluate_p2p_compliance()`. | [src/orchestrator.py](./src/orchestrator.py) |
 | **HITL** | Complete operator lifecycle via `reject_and_halt()` and `/api/v1/operator/reject`. | [src/orchestrator.py](./src/orchestrator.py), [app.py](./app.py) |
-| **MDP Stopping Rule** | Sequence halts under `HALTED_MDP_STOPPING_RULE` when $\mathbb{E}[R_{\text{net}}] \le 0$ via `MDPYieldCalculator`. | [src/orchestrator.py](./src/orchestrator.py) |
+| **MDP Stopping Rule** | Sequence halts under `HALTED_MDP_STOPPING_RULE` when `E[R_net] <= 0` via `MDPYieldCalculator`. | [src/orchestrator.py](./src/orchestrator.py) |
 | **Evidence-Bound** | Classifications capture `evidence_source` & `evidence_payload`; terminal candidate confidence must be $\ge 0.85$. | [src/schemas.py](./src/schemas.py), [src/classifier.py](./src/classifier.py), [src/orchestrator.py](./src/orchestrator.py) |
 | **Explainability First** | 4-step structured rationale chains (`reasoning_chain`) embedded into `AgenticDecisionTrace`. | [src/schemas.py](./src/schemas.py), [src/orchestrator.py](./src/orchestrator.py) |
 | **Auditability by Design** | Single-block SHA-256 cryptographic proofs via `verify_block_proof()` and `/api/v1/ledger/audit/{log_id}`. | [src/ledger.py](./src/ledger.py), [app.py](./app.py) |
@@ -72,7 +72,7 @@
 2. **Attempt cap → halt.** When `attempt_count >= MAX_ATTEMPTS` (3), the orchestrator returns `None`. No further actions are scheduled.
 3. **TRAI chrono-gate → defer, not cancel.** Communications outside 08:00–19:00 IST are deferred by +12h, not dropped. Silent API retries are exempt.
 4. **Promise-to-Pay (PTP) freeze → defer.** When `status == PROMISE_TO_PAY_PENDING`, all recovery retries freeze until `promised_timestamp_epoch`.
-5. **MDP stopping condition.** The sequence halts at step $k^*$ when $\mathbb{E}[R_{\text{net}}](k^*) \le 0$. This is checked per entity.
+5. **MDP stopping condition.** The sequence halts at step `k*` when `E[R_net](k*) <= 0`. This is checked per entity.
 
 ---
 
