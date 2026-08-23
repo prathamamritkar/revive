@@ -45,7 +45,9 @@
 1. Open **POLICY ENGINE (Tab 3)**.
 2. Show formula:
 
-$$\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot V - C_{\text{action}} - \lambda \cdot L_{\text{fatigue}}(k)$$
+$$
+E[R_{\mathrm{net}}](k) = P_{\mathrm{success}}(k) \cdot V - C_{\mathrm{action}} - \lambda \cdot L_{\mathrm{fatigue}}(k)
+$$
 3. Point to TRAI Chrono-Gate indicator (08:00–19:00 IST) and Salary-Cycle Retry Sequencer visual chart.
 4. Highlight: *"The sequence strictly halts when expected net recovery falls below operational outreach cost + customer fatigue penalty."*
 
