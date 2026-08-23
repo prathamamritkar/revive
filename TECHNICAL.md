@@ -81,12 +81,12 @@ sequenceDiagram
 Calculates expected net return per attempt $k$:
 
 $$
-E[R_{\mathrm{net}}](k) = P_{\mathrm{success}}(k) \cdot \mathrm{GrossAmount} - (C_{\mathrm{channel}} + \lambda \cdot k)
+\mathbb{E}[R_{net}](k) = P(k) \cdot \text{GrossAmount} - (C_{channel} + \lambda \cdot k)
 $$
 
 Where:
-- $P_{\mathrm{success}}(k) = \max(0.05, 0.75 - (k-1) \cdot 0.25)$
-- $C_{\mathrm{channel}}$: Channel cost in Paise (`SILENT`: 0, `WHATSAPP`: 60, `VOICE`: 150, `HUMAN`: 500)
+- $P(k) = \max(0.05, 0.75 - (k-1) \cdot 0.25)$
+- $C_{channel}$: Channel cost in Paise (`SILENT`: 0, `WHATSAPP`: 60, `VOICE`: 150, `HUMAN`: 500)
 - $\lambda \cdot k$: Customer fatigue penalty ($100 \cdot k$ Paise)
 
 **Halting Invariant**: If `E[R_net](k) <= 0`, transition state to `HALTED_MDP_STOPPING_RULE` and halt further outreach.

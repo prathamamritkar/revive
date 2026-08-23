@@ -46,7 +46,7 @@
 2. Show formula:
 
 $$
-E[R_{\mathrm{net}}](k) = P_{\mathrm{success}}(k) \cdot V - C_{\mathrm{action}} - \lambda \cdot L_{\mathrm{fatigue}}(k)
+\mathbb{E}[R_{net}](k) = P(k) \cdot V - C_{action} - \lambda \cdot L(k)
 $$
 3. Point to TRAI Chrono-Gate indicator (08:00–19:00 IST) and Salary-Cycle Retry Sequencer visual chart.
 4. Highlight: *"The sequence strictly halts when expected net recovery falls below operational outreach cost + customer fatigue penalty."*

@@ -90,13 +90,13 @@ Classification Space C ∈ {
 Revive models recovery as a constrained Markov Decision Process (MDP) to maximize Net Expected Recovered Capital `E[R_net]` while bounding operational costs and customer fatigue:
 
 $$
-E[R_{\mathrm{net}}](k) = P_{\mathrm{success}}(k) \cdot \mathrm{GrossAmount} - (C_{\mathrm{channel}} + \lambda \cdot k)
+\mathbb{E}[R_{net}](k) = P(k) \cdot \text{GrossAmount} - (C_{channel} + \lambda \cdot k)
 $$
 
 Where:
-- $P_{\mathrm{success}}(k)$: Empirical recovery probability at attempt $k$ ($P(1)=0.75, P(2)=0.50, P(3)=0.25$).
-- $\mathrm{GrossAmount}$: Transaction amount in integer Paise ($1\text{ INR} = 100\text{ Paise}$).
-- $C_{\mathrm{channel}}$: Operational transmission cost ($\mathrm{Silent}=0, \mathrm{WhatsApp}=60, \mathrm{Voice}=150, \mathrm{Human}=500\text{ Paise}$).
+- $P(k)$: Empirical recovery probability at attempt $k$ ($P(1)=0.75, P(2)=0.50, P(3)=0.25$).
+- $\text{GrossAmount}$: Transaction amount in integer Paise ($1\text{ INR} = 100\text{ Paise}$).
+- $C_{channel}$: Operational transmission cost ($\text{Silent}=0, \text{WhatsApp}=60, \text{Voice}=150, \text{Human}=500\text{ Paise}$).
 - $\lambda \cdot k$: Customer fatigue penalty function ($\lambda = 100\text{ Paise/attempt}$).
 
 ### Non-Negotiable Invariant Rules
