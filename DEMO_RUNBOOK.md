@@ -43,7 +43,9 @@
 
 ### Step 4 — MDP Yield Calculator & Policy Bounds (Tab 3) · 10s
 1. Open **POLICY ENGINE (Tab 3)**.
-2. Show formula: $\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot V - C_{\text{action}} - \lambda \cdot L_{\text{fatigue}}(k)$.
+2. Show formula:
+
+$$\mathbb{E}[R_{\text{net}}](k) = P_{\text{success}}(k) \cdot V - C_{\text{action}} - \lambda \cdot L_{\text{fatigue}}(k)$$
 3. Point to TRAI Chrono-Gate indicator (08:00–19:00 IST) and Salary-Cycle Retry Sequencer visual chart.
 4. Highlight: *"The sequence strictly halts when expected net recovery falls below operational outreach cost + customer fatigue penalty."*
 

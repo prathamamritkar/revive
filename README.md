@@ -19,27 +19,27 @@ Revenue loss across payment platforms is rarely a single catastrophic event; it 
                                             │
  ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
  │ LAYER 1: DIAGNOSTIC & HYBRID INTENT ENGINE                                          │
- │ • Deterministic error code parsing against Core Banking System (CBS) matrices      │
- │ • LLM-powered natural language intent classification for customer drop-off notes  │
+ │ • Deterministic error code parsing against Core Banking System (CBS) matrices       │
+ │ • LLM-powered natural language intent classification for customer drop-off notes    │
  └──────────────────────────────────────────┬──────────────────────────────────────────┘
                                             │
  ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 2: POLICY ORCHESTRATOR & MATHEMATICAL MDP                                    │
- │ • TRAI Chrono-Gate: Bounded contact window (08:00–19:00 IST); defers non-compliant│
- │ • Promise-to-Pay (P2P) Lock: Freezes outreach during active grace periods          │
- │ • MDP Stopping Invariant: Halts sequence when E[R_net] <= 0 or Attempt >= 3       │
+ │ LAYER 2: POLICY ORCHESTRATOR & MATHEMATICAL MDP                                     │
+ │ • TRAI Chrono-Gate: Bounded contact window (08:00–19:00 IST); defers non-compliant  │
+ │ • Promise-to-Pay (P2P) Lock: Freezes outreach during active grace periods           │
+ │ • MDP Stopping Invariant: Halts sequence when E[R_net] <= 0 or Attempt >= 3         │
  └──────────────────────────────────────────┬──────────────────────────────────────────┘
                                             │
  ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 3: ADAPTIVE MULTI-CHANNEL DISPATCHER                                         │
- │ • WhatsApp Hinglish: Context-aware messaging + signed 1-click Payment Links        │
- │ • Voice IVR Nudge: Outbound Twilio speech calls with interactive DTMF selection    │
- │ • Virtual Accounts: Auto-reconciling NEFT/RTGS virtual accounts for B2B receivables│
+ │ LAYER 3: ADAPTIVE MULTI-CHANNEL DISPATCHER                                          │
+ │ • WhatsApp Hinglish: Context-aware messaging + signed 1-click Payment Links         │
+ │ • Voice IVR Nudge: Outbound Twilio speech calls with interactive DTMF selection     │
+ │ • Virtual Accounts: Auto-reconciling NEFT/RTGS virtual accounts for B2B receivables │
  └──────────────────────────────────────────┬──────────────────────────────────────────┘
                                             │
  ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 4: CRYPTOGRAPHIC AUDIT LEDGER                                                │
- │ • Append-only, tamper-proof SHA-256 hash chain recording every state mutation      │
+ │ LAYER 4: CRYPTOGRAPHIC AUDIT LEDGER                                                 │
+ │ • Append-only, tamper-proof SHA-256 hash chain recording every state mutation       │
  └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,9 +63,15 @@ Documentation is partitioned by operational domain and target persona:
 
 ## Failure Diagnostic Taxonomy & Recovery Workflows
 
-The diagnostic engine maps incoming telemetry events $\mathcal{E}$ to a discrete classification space $\mathcal{C}$ using a 2-stage pipeline: deterministic CBS registry mapping followed by bounded LLM fallback for ambiguous natural language notes.
+The diagnostic engine maps incoming telemetry events to a discrete classification space using a 2-stage pipeline: deterministic CBS registry mapping followed by bounded LLM fallback for ambiguous natural language notes.
 
-$$\mathcal{C} \in \{ \text{TRANSIENT-NETWORK-DOWN}, \text{TRANSIENT-BALANCE-LOW}, \text{TERMINAL-ACCOUNT-CLOSED}, \text{TERMINAL-AUTH-REJECTED}, \text{ABANDONED-CHECKOUT}, \text{B2B-OVERDUE-INVOICE} \}$$
+```
+Classification Space C ∈ {
+  TRANSIENT_NETWORK_DOWN, TRANSIENT_BALANCE_LOW,
+  TERMINAL_ACCOUNT_CLOSED, TERMINAL_AUTH_REJECTED,
+  ABANDONED_CHECKOUT,      B2B_OVERDUE_INVOICE
+}
+```
 
 | Failure Signature | Diagnostic Classification | Native Recovery Direction | Channel & Action Vector |
 | --- | --- | --- | --- |
@@ -94,9 +100,9 @@ Where:
 ### Non-Negotiable Invariant Rules
 
 1. **MDP Halting Threshold**: Outreach strictly halts (`HALTED_MDP_STOPPING_RULE`) at step $k^*$ when $\mathbb{E}[R_{\text{net}}](k^*) \le 0$.
-2. **Attempt Ceiling**: Hard cap at $k = 3$ attempts (`HALTED_MAX_ATTEMPTS`).
+2. **Attempt Ceiling**: Hard cap at `k = 3` attempts (`HALTED_MAX_ATTEMPTS`).
 3. **Terminal Prohibition**: Immediate 0-touch halt on `TERMINAL_ACCOUNT_CLOSED` and `TERMINAL_AUTH_REJECTED`.
-4. **TRAI Chrono-Gate Bounds**: Customer outreach is restricted to **08:00–19:00 IST**. Non-compliant schedules are deferred by $+12\text{h}$ (`is_trai_deferred: True`).
+4. **TRAI Chrono-Gate Bounds**: Customer outreach is restricted to **08:00–19:00 IST**. Non-compliant schedules are deferred by `+12h` (`is_trai_deferred: True`).
 5. **Promise-to-Pay (PTP) Lock**: Active PTP commitments freeze outreach until `promised_timestamp_epoch`.
 6. **Dual Operational Modes**: Supports **Agentic Autonomous Mode** (`ExecutionMode.AGENTIC_AUTONOMOUS` with `policy_approved=True`) and **Manual Policy-Gated Mode** (`ExecutionMode.MANUAL_POLICY_GATED` requiring operator signoff).
 
@@ -105,7 +111,9 @@ Where:
 ## Cryptographic Audit Ledger & Security Controls
 
 - **SHA-256 Chain Integrity**: Every state transition generates an immutable hash block:
-  $$\mathcal{H}_i = \text{SHA-256}(\text{entity\_id} \mathbin{\Vert} \text{status} \mathbin{\Vert} \text{recovered\_paise} \mathbin{\Vert} \mathcal{H}_{i-1} \mathbin{\Vert} \text{timestamp})$$
+
+$$H_i = \text{SHA-256}(\texttt{entity\_id} \mathbin{\|} \texttt{status} \mathbin{\|} \texttt{recovered\_paise} \mathbin{\|} H_{i-1} \mathbin{\|} \texttt{timestamp})$$
+
 - **HMAC Signature Authentication**: Ingested webhooks verify HMAC-SHA256 signature headers (`X-Webhook-Signature` / `X-Razorpay-Signature`) against `REVIVE_WEBHOOK_SECRET`.
 - **PII Anonymization**: Telephone numbers and customer identifiers are hashed via `redact_pii()` prior to logging or external API transmission.
 
