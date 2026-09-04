@@ -12,7 +12,26 @@ load_dotenv()
 log = logging.getLogger(__name__)
 
 
+def generate_hinglish_voice_twiml(customer_name: str, amount_paise: int, order_id: str) -> str:
+    """Generates bilingual Hinglish TwiML XML with Amazon Polly Aditi neural voice and en-IN fallback."""
+    amount_inr = amount_paise / 100.0
+    ref_short = order_id[-4:] if len(order_id) >= 4 else order_id
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say language="hi-IN" voice="Polly.Aditi">
+        Namaste {customer_name}. Aapka order reference {ref_short} ka payment network issue ki wajah se complete nahi ho paya.
+    </Say>
+    <Say language="en-IN">
+        Your pending transaction amount is Rupees {amount_inr:,.2f}. We have dispatched an instant 1-click payment link directly to your WhatsApp.
+    </Say>
+    <Say language="hi-IN" voice="Polly.Aditi">
+        Kripya WhatsApp link par click karke payment confirm karein. Agar aap kal pay karna chahte hain toh ek dabayein. Dhanyawad!
+    </Say>
+</Response>"""
+
+
 def generate_twiml_voice_recovery(customer_name: str, amount_inr: float, reference_id: str) -> str:
+    """Backward-compatible voice recovery generator for test_suite and legacy endpoints."""
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Say language="hi-IN" voice="Polly.Aditi">
@@ -21,6 +40,27 @@ def generate_twiml_voice_recovery(customer_name: str, amount_inr: float, referen
         Kripya link par click karke payment confirm karein. Dhanyawad!
     </Say>
 </Response>"""
+
+
+def synthesize_mock_audio_manifest(order_id: str, script: str) -> Dict[str, Any]:
+    """Generates structured JSON payload for browser audio playback and telephony UI."""
+    ref_short = order_id[-4:] if len(order_id) >= 4 else order_id
+    return {
+        "order_id": order_id,
+        "engine": "Polly.Aditi",
+        "voice_language": "hi-IN",
+        "script": script,
+        "audio_format": "audio/mp3",
+        "audio_url": f"https://cdn.revive.internal/audio/synthetic_{order_id}.mp3",
+        "duration_seconds": max(5, min(30, len(script) // 15)),
+        "is_mock": True,
+        "dtmf_options": {
+            "1": "Schedule Promise-To-Pay for tomorrow 10:00 AM IST",
+            "2": "Resend 1-Click WhatsApp payment link",
+            "3": "Transfer call to human support agent"
+        },
+        "telemetry_ref": f"ivr_audio_{ref_short}",
+    }
 
 
 # --- OCP & LSP: Communication Channel Extensibility & Behavioral Subtyping ---

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { ReviveOrchestrator } from "./src/engine/orchestrator";
 import { SYNTHETIC_BATCH_50 } from "./src/data/syntheticBatch";
@@ -10,9 +11,18 @@ import { ExecutionMode, TelemetryEvent } from "./src/engine/types";
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || "revpulse_secret_2026";
+  const processedEventCache = new Map<string, number>(); // 5-minute sliding window deduplication
 
   app.use(cors());
-  app.use(express.json({ limit: "10mb" }));
+  app.use(
+    express.json({
+      limit: "10mb",
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf.toString();
+      },
+    })
+  );
 
   // Singleton Orchestrator instance
   const orchestrator = new ReviveOrchestrator();
@@ -203,11 +213,50 @@ async function startServer() {
     res.json({ status: "cleared" });
   });
 
-  // Webhooks
+  // Helper for HMAC-SHA256 verification
+  function verifyRazorpaySignature(rawBody: string, signature: string, secret: string): boolean {
+    if (!signature) return false;
+    try {
+      const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+      return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+    } catch {
+      return false;
+    }
+  }
+
+  // Webhooks with Cryptographic Verification & Replay Protection
   const webhookHandler = (req: express.Request, res: express.Response) => {
-    const payload = req.body;
+    const signature = (req.headers["x-razorpay-signature"] || req.headers["x-webhook-signature"]) as string | undefined;
+    const rawBody = (req as any).rawBody || JSON.stringify(req.body || {});
+
+    // 1. Cryptographic HMAC Signature Verification (if header provided)
+    if (signature) {
+      const isValid = verifyRazorpaySignature(rawBody, signature, WEBHOOK_SECRET);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid Razorpay HMAC-SHA256 Signature." });
+      }
+    }
+
+    const payload = req.body || {};
+    const eventId = payload.event_id || payload.payload?.payment?.entity?.id || `hook_${Date.now()}`;
+
+    // 2. Replay Protection & Deduplication (5-minute sliding window)
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const lastSeen = processedEventCache.get(eventId);
+    if (lastSeen && nowEpoch - lastSeen < 300) {
+      return res.status(200).json({ status: "SKIPPED_DUPLICATE", event_id: eventId });
+    }
+    processedEventCache.set(eventId, nowEpoch);
+
+    // Clean old entries older than 10 minutes
+    if (processedEventCache.size > 2000) {
+      for (const [k, v] of processedEventCache.entries()) {
+        if (nowEpoch - v > 600) processedEventCache.delete(k);
+      }
+    }
+
     const event: TelemetryEvent = {
-      event_id: payload.event_id || `hook_${Date.now()}`,
+      event_id: eventId,
       event_type: payload.event || payload.event_type || "payment.failed",
       entity_id: payload.payload?.payment?.entity?.id || payload.entity_id || `ent_${Date.now()}`,
       gross_amount_paise: payload.payload?.payment?.entity?.amount || payload.gross_amount_paise || 150000,

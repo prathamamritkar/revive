@@ -3,7 +3,7 @@ import sys
 import json
 from typing import Optional
 from datetime import datetime, timezone
-from src.schemas import TelemetryEvent, FailureClassification, ChannelType, RecoveryState
+from src.schemas import TelemetryEvent, FailureClassification, ChannelType, RecoveryState, DispatchRequest
 from src.classifier import TelemetryClassifier
 from src.orchestrator import ReviveOrchestrator
 from src.ledger import AuditLedger
@@ -17,6 +17,7 @@ def run_all_tests():
     from src.classifier import analyze_unstructured_dropoff
     from app import verify_webhook_signature
     from src.schemas import ExecutionMode
+    from src.dispatcher import WhatsAppDispatcher, SentinelDispatcher
 
     # 1. Test Classifier & Hybrid AI Intent
     print("\n[1/8] Testing Telemetry Classifier & Hybrid AI Intent...")

@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Zap,
   Volume2,
+  VolumeX,
   Lock,
   FileCode,
   UserCheck,
@@ -111,12 +112,61 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
     messages[0]?.reasoning_trace || null
   );
 
-  // IVR dialpad state
+  // IVR dialpad & speech synthesis state
   const [ivrDtmfInput, setIvrDtmfInput] = useState<string>('');
   const [ivrCallState, setIvrCallState] = useState<'idle' | 'calling' | 'connected' | 'ended'>(
     'idle'
   );
   const [ivrTranscript, setIvrTranscript] = useState<string[]>([]);
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
+  const [isAudioSpeaking, setIsAudioSpeaking] = useState<boolean>(false);
+
+  const speakText = (text: string) => {
+    if (isAudioMuted || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const cleanText = text
+        .replace(/\[.*?\]:?/g, '')
+        .replace(/["'•*#_~]/g, '')
+        .trim();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+
+      const voices = window.speechSynthesis.getVoices();
+      const matchVoice = voices.find(
+        (v) =>
+          v.lang.toLowerCase().includes('hi') ||
+          v.lang.toLowerCase().includes('in') ||
+          v.name.toLowerCase().includes('india') ||
+          v.name.toLowerCase().includes('hindi')
+      );
+      if (matchVoice) {
+        utterance.voice = matchVoice;
+      }
+
+      utterance.onstart = () => setIsAudioSpeaking(true);
+      utterance.onend = () => setIsAudioSpeaking(false);
+      utterance.onerror = () => setIsAudioSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsAudioSpeaking(false);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsAudioSpeaking(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -219,13 +269,17 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
     });
   };
 
-  // Voice IVR Simulation Handlers
+  // Voice IVR Simulation Handlers with Speech Synthesis
   const handleStartIvrCall = () => {
     setIvrCallState('calling');
     setIvrTranscript(['Connecting outbound call via Twilio Voice gateway (+918045689000)...']);
 
     setTimeout(() => {
       setIvrCallState('connected');
+      const greetingScript = `Namaste! Yeh Revive automated recovery service hai. Aapka ₹${(
+        selectedScenario.amountPaise / 100
+      ).toFixed(2)} ka mandate pending hai. Agar aap kal subah 10 baje pay karna chahte hain toh 1 dabayein. WhatsApp par 1-click link pane ke liye 2 dabayein. Support agent se baat karne ke liye 3 dabayein.`;
+
       setIvrTranscript((prev) => [
         ...prev,
         `[Agent Voice (Hinglish)]: "Namaste! Yeh Revive automated recovery service hai. Aapka ₹${(
@@ -233,7 +287,15 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
         ).toFixed(2)} ka mandate pending hai."`,
         `[Agent Voice]: "Agar aap kal subah 10 baje pay karna chahte hain toh 1 dabayein. WhatsApp par 1-click link pane ke liye 2 dabayein. Support agent se baat karne ke liye 3 dabayein."`,
       ]);
+
+      speakText(greetingScript);
     }, 1200);
+  };
+
+  const handleEndIvrCall = () => {
+    stopSpeaking();
+    setIvrCallState('ended');
+    setIvrTranscript((prev) => [...prev, '[Call Ended by Operator]']);
   };
 
   const handleDtmfPress = (digit: string) => {
@@ -243,28 +305,40 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
     if (digit === '1') {
       const tomorrowEpoch = Math.floor(Date.now() / 1000) + 24 * 3600;
       onRegisterPtp(selectedScenario.entityId, tomorrowEpoch, selectedScenario.amountPaise, 'IVR DTMF 1 - Tomorrow 10 AM');
+      const responseText = "Dhanyawad! Humne aapka Promise-to-Pay kal subah 10 baje ke liye schedule kar diya hai. Call disconnect ho rahi hai.";
       setIvrTranscript((prev) => [
         ...prev,
         `[Customer DTMF Input]: Pressed '1'`,
-        `[Agent Voice]: "Dhanyawad! Humne aapka Promise-to-Pay kal subah 10 baje ke liye schedule kar diya hai. Call disconnect ho rahi hai."`,
-        `[System]: State updated to PROMISE_TO_PAY_PENDING (Frozen until tomorrow 10:00 AM IST).`,
+        `[Agent Voice]: "${responseText}"`,
+        `[System]: State updated to PROMISE_TO_PAY_PENDING (Frozen until tomorrow 10:00 AM IST + 24h grace).`,
       ]);
-      setTimeout(() => setIvrCallState('ended'), 2500);
+      speakText(responseText);
+      setTimeout(() => {
+        setIvrCallState('ended');
+        stopSpeaking();
+      }, 4000);
     } else if (digit === '2') {
+      const responseText = "Humne aapke WhatsApp par instant 1-click UPI link bhej diya hai. Dhanyawad!";
       setIvrTranscript((prev) => [
         ...prev,
         `[Customer DTMF Input]: Pressed '2'`,
-        `[Agent Voice]: "Humne aapke WhatsApp par instant 1-click UPI link bhej diya hai. Dhanyawad!"`,
+        `[Agent Voice]: "${responseText}"`,
         `[System]: Dispatched WhatsApp template with pre-signed Razorpay link.`,
       ]);
-      setTimeout(() => setIvrCallState('ended'), 2500);
+      speakText(responseText);
+      setTimeout(() => {
+        setIvrCallState('ended');
+        stopSpeaking();
+      }, 3500);
     } else if (digit === '3') {
+      const responseText = "Aapki call human support agent queue me transfer ho rahi hai. Kripya hold karein.";
       setIvrTranscript((prev) => [
         ...prev,
         `[Customer DTMF Input]: Pressed '3'`,
-        `[Agent Voice]: "Aapki call human support agent queue me transfer ho rahi hai. Kripya hold karein."`,
+        `[Agent Voice]: "${responseText}"`,
         `[System]: Enqueued in Human Escalation Desk.`,
       ]);
+      speakText(responseText);
     }
   };
 
@@ -517,16 +591,82 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
                 </span>
               </div>
 
-              {/* Call Controls */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleStartIvrCall}
-                  disabled={ivrCallState === 'calling' || ivrCallState === 'connected'}
-                  className="px-5 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider border-2 border-sky-600 border-b-4 active:border-b-2 active:translate-y-[2px] transition-all cursor-pointer disabled:opacity-40 flex items-center gap-2"
-                >
-                  <PhoneCall className="w-4 h-4 stroke-[2.5]" />
-                  <span>Initiate Outbound Call</span>
-                </button>
+              {/* Call Controls & Audio Waveform Visualizer */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleStartIvrCall}
+                    disabled={ivrCallState === 'calling' || ivrCallState === 'connected'}
+                    className="px-4 py-2 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider border-2 border-sky-600 border-b-4 active:border-b-2 active:translate-y-[2px] transition-all cursor-pointer disabled:opacity-40 flex items-center gap-2"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Initiate Call</span>
+                  </button>
+
+                  {ivrCallState === 'connected' && (
+                    <button
+                      onClick={handleEndIvrCall}
+                      className="px-3 py-2 rounded-2xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs uppercase cursor-pointer border-2 border-rose-600 transition-all"
+                    >
+                      End Call
+                    </button>
+                  )}
+
+                  {/* Audio Mute / Unmute Toggle */}
+                  <button
+                    onClick={() => {
+                      const next = !isAudioMuted;
+                      setIsAudioMuted(next);
+                      if (next) stopSpeaking();
+                    }}
+                    className={`p-2 rounded-2xl border font-mono-code text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isAudioMuted
+                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                        : 'bg-sky-500/15 text-sky-400 border-sky-500/30 hover:bg-sky-500/25'
+                    }`}
+                    title={isAudioMuted ? 'Audio Muted' : 'Speech Synthesis Active'}
+                  >
+                    {isAudioMuted ? (
+                      <VolumeX className="w-3.5 h-3.5 stroke-[2.5]" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                    )}
+                    <span className="text-[10px] hidden sm:inline">
+                      {isAudioMuted ? 'MUTED' : 'TTS AUDIO'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Animated Audio Waveform Stream */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-[10px] font-mono-code text-slate-400">
+                    {isAudioSpeaking
+                      ? 'SYNTHESIZING'
+                      : isAudioMuted
+                      ? 'MUTED'
+                      : ivrCallState === 'connected'
+                      ? 'CALL ACTIVE'
+                      : 'STANDBY'}
+                  </span>
+                  <div className="flex items-center gap-1 h-3.5">
+                    {[40, 75, 100, 60, 85, 50, 90, 65].map((height, idx) => (
+                      <span
+                        key={idx}
+                        className={`w-0.5 rounded-full transition-all duration-150 ${
+                          isAudioSpeaking
+                            ? 'bg-sky-400 animate-pulse'
+                            : ivrCallState === 'connected'
+                            ? 'bg-emerald-400/60'
+                            : 'bg-slate-700'
+                        }`}
+                        style={{
+                          height: isAudioSpeaking ? `${height}%` : '25%',
+                          animationDelay: `${idx * 80}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Audio & Transcript Terminal */}

@@ -3,9 +3,8 @@ import logging
 import os
 import urllib.request
 from abc import ABC, abstractmethod
-from typing import Optional, List
-
-from pydantic import BaseModel
+from typing import Optional, List, Any
+from pydantic import BaseModel, Field
 from src.schemas import TelemetryEvent, FailureClassification, AIIntentResponse
 from src.constants import EVIDENCE_CONFIDENCE_THRESHOLD
 
@@ -277,15 +276,34 @@ class DiagnosticRuleRegistry:
         return FailureClassification.TERMINAL_AUTH_REJECTED
 
 
-class SemanticReasoningOutput(BaseModel):
+class SemanticDiagnosisOutput(BaseModel):
     classification: FailureClassification
-    confidence: float
-    detected_intent: str
-    suggested_tone: str
+    confidence_score: float = Field(default=0.85, ge=0.0, le=1.0)
+    inferred_intent: str
+    liquidity_status: str = "UNKNOWN"
+    recommended_tone: str = "EMPATHETIC_CONVERSATIONAL"
+    hinglish_context_prompt: str = ""
+    # Backward compatibility aliases for test_suite.py
+    confidence: Optional[float] = None
+    suggested_tone: Optional[str] = None
+    detected_intent: Optional[str] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.confidence is None:
+            self.confidence = self.confidence_score
+        if self.suggested_tone is None:
+            self.suggested_tone = self.recommended_tone
+        if self.detected_intent is None:
+            self.detected_intent = self.inferred_intent
+
+
+# Backward compatibility type alias
+SemanticReasoningOutput = SemanticDiagnosisOutput
 
 
 class TelemetryClassifier:
     def __init__(self):
+        # Master Bank CBS Health Registry Matrix (HDFC, SBIN, ICIC, UTIB, KKBK)
         self.bank_cbs_health = {
             "HDFC": {"status": "DEGRADED", "avg_recovery_mins": 45},
             "SBIN": {"status": "HEALTHY",  "avg_recovery_mins": 0},
@@ -299,18 +317,119 @@ class TelemetryClassifier:
         self.rule_registry.register(rule, priority_index)
 
     def diagnose_deterministic(self, event: TelemetryEvent) -> Optional[FailureClassification]:
+        """Tier 1: Sub-millisecond Fast-Path categorization of machine error codes and CBS state."""
+        raw_err = (event.raw_error_code or "").upper().strip()
+        evt_type = (event.event_type or "").lower().strip()
+        bank_code = (event.issuing_bank or "").upper().strip()
+        bank_info = self.bank_cbs_health.get(bank_code, {"status": "HEALTHY"})
+
+        # 1. Event Type Rules
+        if evt_type == "invoice.overdue":
+            return FailureClassification.B2B_OVERDUE_INVOICE
+        if evt_type == "checkout.dropped":
+            return FailureClassification.ABANDONED_CHECKOUT
+
+        # 2. Network / Gateway Timeout Fast-Path
+        if any(code in raw_err for code in (
+            "BAD_REQUEST_PAYMENT_TIMED_OUT",
+            "GATEWAY_ERROR",
+            "GATEWAY_TIMEOUT",
+            "TIMEOUT",
+            "NETWORK_ERROR",
+            "BANK_TIMEOUT"
+        )) or bank_info.get("status") == "DEGRADED":
+            return FailureClassification.TRANSIENT_NETWORK_DOWN
+
+        # 3. Insufficient Funds Fast-Path
+        if any(code in raw_err for code in (
+            "INSUFFICIENT_FUNDS",
+            "BALANCE_LOW",
+            "NOT_ENOUGH_BALANCE",
+            "LOW_BALANCE"
+        )):
+            return FailureClassification.TRANSIENT_BALANCE_LOW
+
+        # 4. Terminal Instrument / Account Closed Fast-Path
+        if any(code in raw_err for code in (
+            "CARD_EXPIRED",
+            "MANDATE_REVOKED",
+            "ACCOUNT_BLOCKED",
+            "ACCOUNT_CLOSED",
+            "INSTRUMENT_INACTIVE"
+        )):
+            return FailureClassification.TERMINAL_ACCOUNT_CLOSED
+
+        # 5. Terminal Auth Rejected Fast-Path
+        if any(code in raw_err for code in (
+            "AUTH_FAILED",
+            "USER_DROPPED",
+            "AUTHENTICATION_REJECTED",
+            "OTP_FAILED",
+            "PAYMENT_CANCELLED"
+        )):
+            return FailureClassification.TERMINAL_AUTH_REJECTED
+
+        # Fallback to extensible diagnostic rules
         return self.rule_registry.evaluate_all(event, self.bank_cbs_health)
 
-    def diagnose_with_ai_fallback(self, unstructured_text: str) -> SemanticReasoningOutput:
-        intent = analyze_unstructured_dropoff(unstructured_text)
-        return SemanticReasoningOutput(
-            classification=intent.classification,
-            confidence=intent.confidence,
+    def diagnose_unstructured_agentic(self, unstructured_text: str) -> SemanticDiagnosisOutput:
+        """Tier 2: Agentic Fallback providing bounded semantic reasoning on unstructured text."""
+        # 1. Consult Provider Registry (Gemini / Ollama / Custom OCP / Keyword)
+        intent = _LLM_REGISTRY.analyze(unstructured_text)
+        cls = intent.classification
+        conf = float(intent.confidence)
+
+        # 2. Derive domain liquidity status & Hinglish conversational prompt context
+        t = unstructured_text.lower()
+        if cls == FailureClassification.TRANSIENT_BALANCE_LOW or any(k in t for k in ("salary", "pay on", "deposit", "funds")):
+            liquidity = "CONSTRAINED_PAYDAY_PENDING"
+            tone = intent.suggested_tone or "EMPATHETIC_SALARY_CYCLE_REMINDER"
+            hinglish = "Namaste! Samajh sakte hain salary credit ka wait hai. Mandate payment salary day tak reserve kar diya hai."
+        elif cls == FailureClassification.TRANSIENT_NETWORK_DOWN:
+            liquidity = "OPERATIONAL"
+            tone = intent.suggested_tone or "TRANSACTIONAL_SILENT_RETRY"
+            hinglish = "Bank core system timeout issue. Humne payment silent retry queue me daal diya hai."
+        elif cls == FailureClassification.TERMINAL_ACCOUNT_CLOSED:
+            liquidity = "DEPLETED"
+            tone = intent.suggested_tone or "TERMINAL_ZERO_TOUCH_HALT"
+            hinglish = "Aapka card expire ya mandate revoke ho chuka hai. Kripya naya payment method add karein."
+        elif cls == FailureClassification.TERMINAL_AUTH_REJECTED:
+            liquidity = "UNKNOWN"
+            tone = intent.suggested_tone or "HUMAN_ESCALATION_REQUIRED"
+            hinglish = "Payment authentication cancel hui hai. Query human support agent desk ko route kar di gayi hai."
+        elif cls == FailureClassification.B2B_OVERDUE_INVOICE:
+            liquidity = "CORPORATE_APPROVAL_CYCLE"
+            tone = intent.suggested_tone or "FORMAL_B2B_VIRTUAL_ACCOUNT"
+            hinglish = "Overdue invoice settlement ke liye dedicated Revive Virtual Account me NEFT/RTGS execute karein."
+        elif cls == FailureClassification.ABANDONED_CHECKOUT:
+            liquidity = "OPERATIONAL"
+            tone = intent.suggested_tone or "CART_RESERVATION_NUDGE"
+            hinglish = "Aapka cart reserve rakha gaya hai! 1-Click payment link se order turant confirm karein."
+        else:
+            liquidity = "UNKNOWN"
+            tone = "TERMINAL_ZERO_TOUCH_HALT"
+            hinglish = "Payment verification incomplete; fail-safe zero-touch halt enforced."
+
+        return SemanticDiagnosisOutput(
+            classification=cls,
+            confidence_score=conf,
+            inferred_intent=intent.detected_intent,
+            liquidity_status=liquidity,
+            recommended_tone=tone,
+            hinglish_context_prompt=hinglish,
+            confidence=conf,
+            suggested_tone=tone,
             detected_intent=intent.detected_intent,
-            suggested_tone=intent.suggested_tone,
         )
 
+    def diagnose_with_ai_fallback(self, unstructured_text: str) -> SemanticDiagnosisOutput:
+        """Backward-compatible wrapper for diagnose_unstructured_agentic."""
+        return self.diagnose_unstructured_agentic(unstructured_text)
+
     def diagnose(self, event: TelemetryEvent) -> FailureClassification:
+        det = self.diagnose_deterministic(event)
+        if det:
+            return det
         return self.rule_registry.evaluate_all(event, self.bank_cbs_health)
 
     def diagnose_with_ai(self, event: TelemetryEvent, customer_note: Optional[str] = None) -> AIIntentResponse:
@@ -325,4 +444,6 @@ class TelemetryClassifier:
             detected_intent=f"Deterministic CBS diagnostic signature for {event.event_type}",
             urgency_level="MEDIUM",
             suggested_tone="REVIVE_DETERMINISTIC_POLICY",
+            evidence_source="CBS_TELEMETRY_FAST_PATH",
+            evidence_payload=event.raw_error_code or event.event_type,
         )

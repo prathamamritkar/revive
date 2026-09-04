@@ -1,4 +1,11 @@
+import os
 from src.schemas import FailureClassification
+
+# --- 12-Factor App Environment Configuration ---
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", os.getenv("SERVER_PORT", "8000")))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+APP_ENV = os.getenv("APP_ENV", "development")
 
 # --- Immutable Domain Invariants & Policies (Code-Bound SSOT) ---
 LEDGER_GENESIS_HASH = "00000000000000000000000000000000"

@@ -175,28 +175,80 @@ class RecoveryStrategyRegistry:
 
 
 class PromiseToPayEngine:
+    """Dedicated Promise-to-Pay (P2P) Lifecycle Engine for B2B invoices & consumer commitments."""
     def __init__(self):
         self.promises: Dict[str, Dict[str, Any]] = {}
 
-    def register_promise(self, invoice_id: str, promised_timestamp: int, expected_paise: int):
-        self.promises[invoice_id] = {
-            "promised_timestamp": promised_timestamp,
-            "expected_paise": expected_paise,
-            "status": "ACTIVE_MONITORING",
+    def register_promise(
+        self,
+        invoice_id: str,
+        promised_epoch: int,
+        amount_paise: int,
+        debtor_contact: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Registers a debtor promise to pay with a 24-hour active grace monitoring window."""
+        if promised_epoch <= 0:
+            raise ValueError("promised_epoch must be a positive epoch timestamp")
+        record = {
+            "invoice_id": invoice_id,
+            "promised_epoch": int(promised_epoch),
+            "promised_timestamp": int(promised_epoch),  # backward compatibility alias
+            "amount_paise": int(amount_paise),
+            "expected_paise": int(amount_paise),        # backward compatibility alias
+            "debtor_contact": debtor_contact,
+            "status": "ACTIVE_GRACE",
             "registered_at": int(time.time()),
+            "settled_paise": 0,
         }
+        self.promises[invoice_id] = record
+        return record
 
-    def evaluate_promise_state(self, invoice_id: str, is_paid: bool, current_time: int) -> str:
+    def evaluate_promise_state(
+        self,
+        invoice_id: str,
+        arg2: Any = None,
+        arg3: Any = None,
+        settled_paise: Optional[int] = None,
+        current_epoch: Optional[int] = None,
+    ) -> str:
+        """
+        Evaluates the P2P lifecycle state:
+        - ACTIVE_GRACE: Current time <= promised_epoch + 24 hours (mutes automated dunning).
+        - PROMISE_HONORED: Full amount settled via Virtual Account before grace window closes.
+        - PROMISE_BROKEN: Grace period expired without payment; triggers escalation.
+        Supports both signatures:
+          (invoice_id, is_paid: bool, current_time: int)
+          (invoice_id, current_epoch: int, settled_paise: int)
+        """
         record = self.promises.get(invoice_id)
         if not record:
             return "NO_RECORD"
-        if is_paid:
+
+        promised = record.get("promised_epoch") or record.get("promised_timestamp", 0)
+        expected = record.get("amount_paise") or record.get("expected_paise", 0)
+
+        if isinstance(arg2, bool):
+            is_paid = arg2
+            now_epoch = int(arg3) if isinstance(arg3, (int, float)) else int(time.time())
+            actual_settled = expected if is_paid else 0
+        else:
+            now_epoch = int(arg2) if isinstance(arg2, (int, float)) else (current_epoch or int(time.time()))
+            actual_settled = int(arg3) if isinstance(arg3, (int, float)) else (settled_paise or 0)
+            is_paid = actual_settled >= expected and expected > 0
+
+        record["settled_paise"] = actual_settled
+        grace_window = 24 * 3600  # 24-hour compliance grace period
+
+        if is_paid or (expected > 0 and actual_settled >= expected):
             record["status"] = "HONORED"
             return "PROMISE_HONORED"
-        if current_time > record["promised_timestamp"] + PTP_GRACE_SECONDS:
+
+        if now_epoch <= promised + grace_window:
+            record["status"] = "ACTIVE_GRACE"
+            return "ACTIVE_GRACE"
+        else:
             record["status"] = "BROKEN"
-            return "PROMISE_BROKEN_TRIGGER_ESCALATION"
-        return "WITHIN_GRACE_PERIOD"
+            return "PROMISE_BROKEN"
 
 
 class ReviveOrchestrator:
@@ -286,8 +338,9 @@ class ReviveOrchestrator:
 
         self.ptp_engine.register_promise(
             invoice_id=entity_id,
-            promised_timestamp=promised_timestamp_epoch,
-            expected_paise=target_amount,
+            promised_epoch=promised_timestamp_epoch,
+            amount_paise=target_amount,
+            debtor_contact=state.get("phone_number"),
         )
 
         return {
@@ -362,6 +415,19 @@ class ReviveOrchestrator:
             current_state["status"] = RecoveryState.HALTED_TERMINAL
             self.state_store[entity_id] = current_state
             return None
+
+        # Route B2B_OVERDUE_INVOICE through PromiseToPayEngine lifecycle
+        if classification == FailureClassification.B2B_OVERDUE_INVOICE and entity_id in self.ptp_engine.promises:
+            p2p_eval = self.ptp_engine.evaluate_promise_state(
+                entity_id, now, current_state.get("recovered_paise", 0)
+            )
+            if p2p_eval in ("ACTIVE_GRACE", "WITHIN_GRACE_PERIOD"):
+                return None  # Mutes automated dunning during active grace period
+            elif p2p_eval == "PROMISE_HONORED":
+                current_state["status"] = RecoveryState.RECOVERED
+                return None
+            elif p2p_eval in ("PROMISE_BROKEN", "PROMISE_BROKEN_TRIGGER_ESCALATION"):
+                current_state["attempts"] = max(current_state.get("attempts", 0), 2)
 
         attempt = current_state["attempts"] + 1
         amount_inr = paise_to_inr(event.gross_amount_paise)
@@ -439,11 +505,8 @@ class ReviveOrchestrator:
         return {"entity_id": entity_id, "status": "APPROVED_AND_DISPATCHED", "dispatch": disp_res}
 
     def reject_and_halt(self, entity_id: str, reason: str = "Operator Rejected") -> Optional[Dict[str, Any]]:
-        item = self.pending_operator_queue.pop(entity_id, None)
-        if not item:
-            return None
-
-        state = self.state_store.get(entity_id, {"attempts": 1})
+        self.pending_operator_queue.pop(entity_id, None)
+        state = self.state_store.get(entity_id, _default_state())
         state["status"] = RecoveryState.HALTED_TERMINAL
         state["rejection_reason"] = reason
         self.state_store[entity_id] = state
@@ -457,6 +520,7 @@ class ReviveOrchestrator:
     def execute_mock_batch(self, events: List[TelemetryEvent]) -> List[AuditLedgerEntry]:
         self.ledger = AuditLedger()
         self.state_store.clear()
+        now_epoch = int(time.time())
 
         for event in events:
             action = self.process_event(event)
@@ -482,6 +546,18 @@ class ReviveOrchestrator:
                     cost_paise = CHANNEL_COSTS_PAISE["HUMAN_ESCALATION"]
 
                 self.dispatcher.dispatch(self._build_dispatch(event, action.target_channel, action.payload))
+
+            # Route B2B overdue invoice tracking through PromiseToPayEngine
+            if event.event_type == "invoice.overdue":
+                if event.entity_id not in self.ptp_engine.promises:
+                    self.ptp_engine.register_promise(
+                        invoice_id=event.entity_id,
+                        promised_epoch=now_epoch + 86400 * (event.invoice_age_days or 7),
+                        amount_paise=event.gross_amount_paise,
+                        debtor_contact=event.customer_phone,
+                    )
+                if recovered_paise >= event.gross_amount_paise:
+                    self.ptp_engine.evaluate_promise_state(event.entity_id, True, now_epoch)
 
             final_status = RecoveryState.RECOVERED if recovered_paise > 0 else state["status"]
             self.ledger.record_entry(

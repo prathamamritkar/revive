@@ -123,7 +123,9 @@ export class ReviveOrchestrator {
     }
 
     const promisedEpoch = state.ptp_epoch || 0;
-    if (actualEpoch <= promisedEpoch) {
+    const gracePeriodLimit = promisedEpoch + 24 * 3600; // 24-hour grace period window
+
+    if (actualEpoch <= gracePeriodLimit) {
       state.p2p_status = P2PStatus.PROMISE_HONORED;
       state.status = RecoveryState.RECOVERED;
       state.recovered_amount_paise = state.ptp_amount_paise || state.initial_amount_paise;
@@ -134,7 +136,7 @@ export class ReviveOrchestrator {
         RecoveryState.RECOVERED,
         state.attempt_count,
         state.total_cost_paise,
-        "PTP_PROMISE_HONORED"
+        "PTP_PROMISE_HONORED_WITHIN_GRACE"
       );
     } else {
       state.p2p_status = P2PStatus.PROMISE_BROKEN;
@@ -146,7 +148,7 @@ export class ReviveOrchestrator {
         RecoveryState.SCHEDULED,
         state.attempt_count,
         state.total_cost_paise,
-        "PTP_PROMISE_BROKEN_ESCALATING"
+        "PTP_PROMISE_BROKEN_GRACE_EXPIRED_ESCALATING"
       );
     }
     this.stateStore.set(entityId, state);
