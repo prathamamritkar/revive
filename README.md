@@ -1,4 +1,4 @@
-# Revive — Autonomous AI Revenue Recovery Engine
+# Revive — Revenue Recovery Engine
 
 > **Deterministic, Policy-Gated Capital Recovery Engine for Enterprise Payment Platforms**
 
@@ -6,7 +6,7 @@
 
 ---
 
-## Executive Overview: Autonomous Revenue Recovery
+## Overview
 
 Revenue loss across payment platforms is rarely a single catastrophic event; it leaks silently across degrading payments, abandoned checkouts, failed subscriptions, or overdue invoices. Traditional recovery systems rely on uncoordinated static retries that trigger customer fatigue, incur heavy API transaction fees, or violate regulatory calling bounds.
 
@@ -58,6 +58,101 @@ Documentation is partitioned by operational domain and target persona:
 | 🛠️ [LIVE_SETUP_GUIDE.md](./LIVE_SETUP_GUIDE.md) | **DevOps & Integration Engineers** | Production environment configuration, Twilio WhatsApp/Voice credentials, live Gateway API keys, and public ngrok setup. |
 | 🗺️ [.antigravity-context-map.md](./.antigravity-context-map.md) | **Domain Engineers** | Domain-Driven Design (DDD) context map, domain entities, value objects, invariant boundaries, and module mappings. |
 | 📋 [openspec/README.md](./openspec/README.md) | **Engineering Leadership** | Formal specification, current v1.0 feature audit, versioned schema definitions, and production roadmap. |
+
+---
+
+## Application Modules
+
+The application interface organizes recovery operations into five canonical modules:
+
+| Module | Navigation | Functional Scope |
+| --- | --- | --- |
+| **Overview** | `Overview` | Financial recovery metrics, bank CBS availability status, pending review queue, and recent dispatches feed. |
+| **Console** | `Console` | Interactive channel simulator (WhatsApp Hinglish & Voice IVR), 4-step decision traces, and custom webhook ingestion. |
+| **Benchmark** | `Benchmark` | 50-record batch simulation, side-by-side performance comparison vs. naive baseline, and live cryptographic audit stream. |
+| **Policy** | `Policy` | Issuing bank CBS pacing matrix, TRAI chrono-gate bounds, MDP net yield formula, and deterministic routing table. |
+| **Ledger** | `Ledger` | Append-only SHA-256 state transition ledger, block explorer, and single-block cryptographic proof verification. |
+
+---
+
+## Core Architectural Pillars
+
+Revive is engineered around three non-negotiable architectural pillars designed to maximize recovered capital while eliminating customer fatigue and ensuring full regulatory compliance:
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   CORE ARCHITECTURAL PILLARS                                     │
+├──────────────────────────────┬───────────────────────────────────┬───────────────────────────────┤
+│    PILLAR 1: TRAI CHRONO-    │    PILLAR 2: FINITE-HORIZON       │    PILLAR 3: SHA-256          │
+│             GATE             │       MDP YIELD OPTIMIZER         │        AUDIT LEDGER           │
+├──────────────────────────────┼───────────────────────────────────┼───────────────────────────────┤
+│ • Strict 08:00–19:00 IST     │ • Mathematical stopping rule k*   │ • Append-only SHA-256 hash    │
+│   commercial outreach window │ • Halts when E[R_net](k*) <= 0    │   block state transitions     │
+│ • Non-compliant dispatches   │ • Balances empirical recovery vs. │ • Cryptographically verifiable│
+│   deferred by +12h           │   transmission & fatigue costs    │   provable audit trail        │
+│ • Silent API retries exempt  │ • Hard cap at 3 attempts          │ • Zero floating-point drift   │
+└──────────────────────────────┴───────────────────────────────────┴───────────────────────────────┘
+```
+
+### Pillar 1: TRAI Chrono-Gate (08:00–19:00 IST)
+Zero customer fatigue or nighttime spam. Under Telecom Commercial Communications Customer Preference Regulations (TCCCPR), all customer-facing touches (WhatsApp, SMS, IVR Voice calls) are chronologically restricted to **08:00 AM to 07:00 PM IST** (UTC+5:30). Communications triggered during off-hours are automatically rolled forward by `+12h` without dropping contextual state or intent. Machine-to-machine silent API retries remain active 24/7.
+
+### Pillar 2: Finite-Horizon Markov Decision Process (MDP) Net Yield Optimizer
+Revive treats payment recovery as a sequential decision problem over a finite horizon ($k \in \{1, 2, 3\}$). The policy evaluator calculates expected net yield:
+$$\mathbb{E}[R_{net}](k) = P(k) \cdot \text{GrossAmount} - (C_{channel} + \lambda \cdot k)$$
+Outreach halts immediately at step $k^*$ when $\mathbb{E}[R_{net}](k^*) \le 0$ or upon hitting the maximum attempt cap ($k=3$), preventing uncoordinated retry loops and protecting merchant brand reputation.
+
+### Pillar 3: Cryptographic SHA-256 Audit Ledger
+Every state transition—from initial failure ingestion to PTP lock, channel dispatch, or webhook settlement—generates an immutable SHA-256 cryptographic hash block linking to the previous block hash. All monetary quantities are strictly processed in **Integer Paise** (1 INR = 100 Paise), guaranteeing zero IEEE-754 floating-point drift across accounting audits.
+
+---
+
+## The 4-Stage Recovery Lifecycle
+
+Revive executes an automated 4-stage lifecycle for every payment failure event:
+
+```text
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│    STAGE 01     │ ───> │    STAGE 02     │ ───> │    STAGE 03     │ ───> │    STAGE 04     │
+│ Ingest &        │      │ Policy Gate &   │      │ Targeted        │      │ Cryptographic   │
+│ Diagnose        │      │ Timing          │      │ Outreach        │      │ Proof           │
+└─────────────────┘      └─────────────────┘      └─────────────────┘      └─────────────────┘
+ • Verified Webhook       • TRAI Chrono-Gate       • WhatsApp Hinglish      • SHA-256 Hash
+   Ingestion (HMAC)         Bounds (08-19 IST)       1-Click Link             Chain Append
+ • CBS Gateway Health     • PTP Lock Check         • Outbound Twilio        • Proof Inspector
+   Matrix Lookup          • Mathematical MDP         Voice IVR Call           Validation
+ • Intent Extraction        Yield Calculator       • Smart Virtual Acct     • Webhook Recon
+```
+
+1. **Stage 01: Ingest & Diagnose**
+   Ingests verified payment failure webhooks (`subscription.charged_failed`, `payment.failed`, checkout drops) with HMAC-SHA256 signature verification. Performs sub-millisecond deterministic error code categorization against the Core Banking System (CBS) registry, with bounded LLM classification for unstructured customer notes.
+2. **Stage 02: Policy Gate & Timing Evaluation**
+   Validates the candidate against non-negotiable invariants: TRAI contact window check, active Promise-to-Pay (PTP) temporal lock check, terminal failure prohibition (0-touch halt on `TERMINAL_ACCOUNT_CLOSED` / `TERMINAL_AUTH_REJECTED`), and finite-horizon MDP net yield optimization.
+3. **Stage 03: Targeted Outreach & Channel Execution**
+   Dispatches the optimal recovery vehicle: localized WhatsApp Hinglish notifications with pre-signed 1-click Razorpay links, outbound Twilio Voice IVR speech calls with DTMF keypad interaction, dedicated Smart Collect Virtual Accounts, or paced silent API retries.
+4. **Stage 04: Cryptographic Settlement & Audit Proof**
+   Appends the state transition to the append-only SHA-256 audit ledger, storing cryptographic proof of compliance, timestamp, channel cost, and recovered capital for full accounting traceability.
+
+---
+
+## Three Specialized Recovery Channels
+
+Revive deploys specialized recovery strategies calibrated to specific revenue streams:
+
+| Revenue Channel | Failure Modes & Signatures | Recovery Mechanism | Operational Outcome |
+|---|---|---|---|
+| **Recurring Subscriptions & Mandates** | `INSUFFICIENT_FUNDS`, `GATEWAY_TIMEOUT`, bank network dips | Bank CBS outage pacing (+45m cooldown), localized WhatsApp Hinglish notifications with pre-signed 1-click Razorpay links (`https://rzp.io/i/...`). | Eliminates involuntary churn without burning mandate authorization limits. |
+| **Abandoned Checkouts** | High-intent drop-offs, user session timeouts, UPI app aborts | Instant intent triage, automated 1-click pre-signed payment link generated within 15 minutes of abandonment with loss-averse personalized copy. | Recovers high-intent buyers before drop-off intent decays. |
+| **B2B Overdue Invoices & Receivables** | Commercial net-30 delays, disputed invoices, procurement lag | Dedicated Razorpay Smart Collect Virtual Accounts (`rzp.virtual.*@hdfcbank`) auto-reconciling NEFT/RTGS wire transfers, paired with Promise-to-Pay (PTP) grace period freezes. | Provides friction-free corporate wire transfer settlement with automated ledger reconciliation. |
+
+---
+
+## Separation of Concerns: Documentation vs. Demonstrator UI
+
+Revive maintains a strict boundary between documentation and user interface:
+
+- **The Interactive Web Application**: Designed strictly as an operator command center and live demonstration instrument. All visual screens are dedicated to active controls, real-time telemetry feeds, interactive Voice IVR dialpads, bank gateway health toggles, and cryptographic ledger verification. It contains zero marketing brochures, promotional hero copy, or duplicate informational text.
+- **The Repository Documentation Suite (`README.md`, `TECHNICAL.md`, `AGENTS.md`)**: Serves as the authoritative knowledge repository containing architectural pillars, mathematical formulations, regulatory compliance specifications, economic ROI models, and integration runbooks.
 
 ---
 

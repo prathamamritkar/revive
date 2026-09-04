@@ -141,6 +141,10 @@ body {
   letter-spacing: -0.02em;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   color: rgb(var(--color-text));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 @media (min-width: 640px) {

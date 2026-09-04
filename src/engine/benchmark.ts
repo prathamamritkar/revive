@@ -1,11 +1,34 @@
 import { TelemetryEvent, FailureClassification } from './types';
 import { SYNTHETIC_BATCH_50 } from '../data/syntheticBatch';
-import { CHANNEL_COSTS_PAISE } from './constants';
+import { CHANNEL_COSTS_PAISE, LEDGER_GENESIS_HASH } from './constants';
 import { MDPYieldCalculator } from './orchestrator';
+import { sha256Sync } from './utils';
+
+export interface ItemizedBatchRecord {
+  index: number;
+  event_id: string;
+  entity_id: string;
+  category: string;
+  issuing_bank: string;
+  raw_error_code: string;
+  gross_amount_paise: number;
+  recovered_paise: number;
+  action_channel: string;
+  comm_cost_paise: number;
+  net_yield_paise: number;
+  trai_status: 'COMPLIANT (08:00-19:00 IST)' | 'DEFERRED (+12h)';
+  cbs_status: 'HEALTHY' | 'CBS_PACED';
+  stopping_reason?: string;
+  prev_hash: string;
+  audit_hash: string;
+  block_id: string;
+  is_verified: boolean;
+}
 
 export interface BatchComparisonResult {
   total_events: number;
   gross_exposed_paise: number;
+  itemized_records: ItemizedBatchRecord[];
   
   baseline: {
     recovered_paise: number;
@@ -69,6 +92,9 @@ export class BenchmarkEngine {
     let revive_mdp_halted = 0;
     let revive_cbs_deferred = 0;
     let revive_ptp_recovered = 0;
+
+    const itemized_records: ItemizedBatchRecord[] = [];
+    let runningPrevHash = LEDGER_GENESIS_HASH;
 
     // Category breakdown
     const catMap: Record<string, { count: number; exposed: number; base_rec: number; revive_rec: number }> = {
@@ -145,54 +171,116 @@ export class BenchmarkEngine {
 
       // ─── 2. SIMULATE REVIVE AGENTIC RECOVERY ─────────────────────────────────
       // Revive uses CBS Pacing, 1-Click WhatsApp links, Virtual Accounts, and MDP Stopping
+      let item_rec_paise = 0;
+      let item_cost_paise = 0;
+      let item_channel = "SILENT_API_RETRY";
+      let item_stopping_reason = "RECOVERED";
+      let item_cbs_status: 'HEALTHY' | 'CBS_PACED' = 'HEALTHY';
+
       if (isBankOutage) {
         // Silent API retry deferred until CBS recovery -> 82% recovery, 0 customer spam, 0 TRAI violations
         revive_cbs_deferred += 1;
-        revive_cost_paise += CHANNEL_COSTS_PAISE.SILENT_API_RETRY; // only ₹0.10
+        item_cbs_status = 'CBS_PACED';
+        item_cost_paise = CHANNEL_COSTS_PAISE.SILENT_API_RETRY;
+        item_channel = "SILENT_API_RETRY (CBS Paced)";
+        revive_cost_paise += item_cost_paise;
         if (i % 5 !== 0) {
-          const rec = evt.gross_amount_paise;
-          revive_recovered_paise += rec;
-          catMap[catKey].revive_rec += rec;
+          item_rec_paise = evt.gross_amount_paise;
+          revive_recovered_paise += item_rec_paise;
+          catMap[catKey].revive_rec += item_rec_paise;
+          item_stopping_reason = "CBS Core Auto-Recovered";
+        } else {
+          item_stopping_reason = "Exhausted 3-Attempt Cap";
         }
       } else if (catKey === "Card Expirations & Auth") {
         // Terminal classification -> Halted at 0 touches with 1-click update link
-        revive_cost_paise += CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH; // ₹0.60
+        item_cost_paise = CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH;
+        item_channel = "WHATSAPP (Card Update Link)";
+        revive_cost_paise += item_cost_paise;
         if (i % 2 === 0) {
-          const rec = evt.gross_amount_paise;
-          revive_recovered_paise += rec;
-          catMap[catKey].revive_rec += rec;
+          item_rec_paise = evt.gross_amount_paise;
+          revive_recovered_paise += item_rec_paise;
+          catMap[catKey].revive_rec += item_rec_paise;
+          item_stopping_reason = "Card Mandate Updated";
+        } else {
+          item_stopping_reason = "Terminal Card Expired (0-Touch Halt)";
         }
       } else if (catKey === "Abandoned Checkouts") {
         // Pre-signed 1-click UPI WhatsApp link in 15 mins -> ~80% recovery
-        revive_cost_paise += CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH;
+        item_cost_paise = CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH;
+        item_channel = "WHATSAPP_HINGLISH (1-Click UPI)";
+        revive_cost_paise += item_cost_paise;
         if (i % 5 !== 0) {
-          const rec = evt.gross_amount_paise;
-          revive_recovered_paise += rec;
-          catMap[catKey].revive_rec += rec;
+          item_rec_paise = evt.gross_amount_paise;
+          revive_recovered_paise += item_rec_paise;
+          catMap[catKey].revive_rec += item_rec_paise;
+          item_stopping_reason = "1-Click UPI Converted";
+        } else {
+          item_stopping_reason = "Customer Dropped";
         }
       } else if (catKey === "B2B Overdue Invoices") {
         // Auto-reconciling Virtual Account VPA + PTP capture -> ~90% recovery
-        revive_cost_paise += CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH + 50;
+        item_cost_paise = CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH + 50;
+        item_channel = "SMART_COLLECT (Virtual VPA + PTP)";
         revive_ptp_recovered += 1;
+        revive_cost_paise += item_cost_paise;
         if (i % 10 !== 0) {
-          const rec = evt.gross_amount_paise;
-          revive_recovered_paise += rec;
-          catMap[catKey].revive_rec += rec;
+          item_rec_paise = evt.gross_amount_paise;
+          revive_recovered_paise += item_rec_paise;
+          catMap[catKey].revive_rec += item_rec_paise;
+          item_stopping_reason = "PTP Auto-Reconciled VPA";
+        } else {
+          item_stopping_reason = "Overdue Escalated";
         }
       } else {
         // Mandates with smart balance salary timing + MDP yield check
         const mdp = MDPYieldCalculator.computeExpectedNetYield(evt.gross_amount_paise, 1);
         if (mdp.shouldHalt) {
           revive_mdp_halted += 1;
+          item_channel = "HALTED_MDP_STOPPING_RULE";
+          item_cost_paise = 0;
+          item_stopping_reason = "Halted: E[Net Yield] <= 0";
         } else {
-          revive_cost_paise += CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH;
+          item_cost_paise = CHANNEL_COSTS_PAISE.WHATSAPP_HINGLISH;
+          item_channel = "WHATSAPP_HINGLISH";
+          revive_cost_paise += item_cost_paise;
           if (i % 4 !== 0) {
-            const rec = evt.gross_amount_paise;
-            revive_recovered_paise += rec;
-            catMap[catKey].revive_rec += rec;
+            item_rec_paise = evt.gross_amount_paise;
+            revive_recovered_paise += item_rec_paise;
+            catMap[catKey].revive_rec += item_rec_paise;
+            item_stopping_reason = "Salary-Timed Mandate Cleared";
+          } else {
+            item_stopping_reason = "Max Attempts Reached";
           }
         }
       }
+
+      const block_id = `block_${String(i + 1).padStart(5, '0')}`;
+      const prev_hash = runningPrevHash;
+      const hashPayload = `${block_id}:${evt.entity_id}:${evt.gross_amount_paise}:${item_rec_paise}:${item_channel}:${prev_hash}`;
+      const audit_hash = sha256Sync(hashPayload);
+      runningPrevHash = audit_hash;
+
+      itemized_records.push({
+        index: i + 1,
+        event_id: evt.event_id,
+        entity_id: evt.entity_id,
+        category: catKey,
+        issuing_bank: evt.issuing_bank || 'HDFC',
+        raw_error_code: evt.raw_error_code || 'GATEWAY_TIMEOUT',
+        gross_amount_paise: evt.gross_amount_paise,
+        recovered_paise: item_rec_paise,
+        action_channel: item_channel,
+        comm_cost_paise: item_cost_paise,
+        net_yield_paise: item_rec_paise - item_cost_paise,
+        trai_status: isNightTime ? 'DEFERRED (+12h)' : 'COMPLIANT (08:00-19:00 IST)',
+        cbs_status: item_cbs_status,
+        stopping_reason: item_stopping_reason,
+        prev_hash,
+        audit_hash,
+        block_id,
+        is_verified: true,
+      });
     }
 
     const base_net = base_recovered_paise - base_cost_paise - base_fatigue_penalty_paise;
@@ -217,6 +305,7 @@ export class BenchmarkEngine {
     return {
       total_events: events.length,
       gross_exposed_paise,
+      itemized_records,
       baseline: {
         recovered_paise: base_recovered_paise,
         recovery_rate_pct: Number(base_rate.toFixed(1)),

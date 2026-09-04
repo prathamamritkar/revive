@@ -162,7 +162,7 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
           <div>
             <h2 className="duo-h2 flex items-center gap-2">
               <Server className="w-5 h-5 text-sky-400 stroke-[2.5]" />
-              <span>ISSUING BANK CBS REGISTRY & PACING GATEWAYS</span>
+              <span>Bank CBS Gateways</span>
             </h2>
             <p className="duo-body text-xs">
               When an issuing bank's Core Banking Solution (CBS) enters downtime, retries are paced by ETA to prevent mandate burn.
@@ -245,7 +245,7 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
               <h3 className="duo-h3 text-sm">MDP Yield Optimizer</h3>
             </div>
             <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              E[R_net] &gt; 0 RULE
+              E[R<sub className="text-[8px] font-sans font-bold">net</sub>] &gt; 0 RULE
             </span>
           </div>
 
@@ -268,7 +268,7 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
 
             <div className="p-3 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))]">
               <div className="flex justify-between duo-label mb-1">
-                <span>Base Recovery Prob (P_base)</span>
+                <span>Base Recovery Prob (P<sub className="text-[8px] font-sans font-bold">base</sub>)</span>
                 <span className="text-emerald-400 font-bold">{(pSuccessBase * 100).toFixed(0)}%</span>
               </div>
               <input
@@ -324,7 +324,7 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-xs font-mono-code font-bold mb-1">
-              <span>Expected Net Yield E[R_net]:</span>
+              <span>Expected Net Yield E[R<sub className="text-[8px] font-sans font-bold">net</sub>]:</span>
               <span className="text-sm font-black">
                 ₹{Math.max(0, eNet).toFixed(2)}
               </span>
@@ -332,11 +332,11 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
             <div className="text-[11px] font-mono-code">
               {shouldHalt ? (
                 <span className="font-bold text-rose-400">
-                  ⛔ MDP STOPPING CONDITION MET: E[R_net] &le; 0. Sequence halts immediately.
+                  ⛔ MDP STOPPING CONDITION MET: E[R<sub className="text-[8px] font-sans font-bold">net</sub>] ≤ 0. Sequence halts immediately.
                 </span>
               ) : (
                 <span className="font-bold text-emerald-400">
-                  ✅ POSITIVE RECOVERY EXPECTATION: Proceed with intervention dispatch.
+                  ✅ POSITIVE RECOVERY EXPECTATION: E[R<sub className="text-[8px] font-sans font-bold">net</sub>] &gt; 0. Proceed with intervention dispatch.
                 </span>
               )}
             </div>
@@ -393,7 +393,7 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="duo-h2">
-              DETERMINISTIC ERROR ROUTING POLICY (SSOT)
+              Routing Rules
             </h2>
             <p className="duo-body text-xs">
               Every failure code maps deterministically to an exact recovery channel, pacing delay, and TRAI gate requirement.
@@ -401,31 +401,31 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono-code">
-            <thead>
+        <div className="overflow-x-auto overflow-y-auto max-h-[460px] rounded-2xl border-2 border-[rgb(var(--color-line))] shadow-inner">
+          <table className="w-full text-left text-xs font-mono-code relative">
+            <thead className="sticky top-0 bg-[rgb(var(--color-surface))] z-10 shadow-xs">
               <tr className="border-b-2 border-[rgb(var(--color-line))] text-[rgb(var(--color-muted))]">
-                <th className="pb-3">Raw Error Code</th>
-                <th className="pb-3">Classification</th>
-                <th className="pb-3">Assigned Channel</th>
-                <th className="pb-3">Pacing Delay</th>
-                <th className="pb-3">TRAI Gate Policy</th>
-                <th className="pb-3 text-right">Invariant Rule</th>
+                <th className="py-3 px-3 whitespace-nowrap min-w-[190px]">Raw Error Code</th>
+                <th className="py-3 px-3 whitespace-nowrap min-w-[160px]">Classification</th>
+                <th className="py-3 px-3 whitespace-nowrap min-w-[160px]">Assigned Channel</th>
+                <th className="py-3 px-3 whitespace-nowrap min-w-[130px]">Pacing Delay</th>
+                <th className="py-3 px-3 whitespace-nowrap min-w-[150px]">TRAI Gate Policy</th>
+                <th className="py-3 px-3 text-right whitespace-nowrap min-w-[130px]">Invariant Rule</th>
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-[rgb(var(--color-line))]">
+            <tbody className="divide-y-2 divide-[rgb(var(--color-line))] bg-[rgb(var(--color-card))]">
               {routingRules.map((rule) => (
                 <tr key={rule.code} className="hover:bg-[rgb(var(--color-surface))]/50 transition-colors">
-                  <td className="py-3 font-bold text-sky-400">{rule.code}</td>
-                  <td className="py-3">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${rule.badgeColor}`}>
+                  <td className="py-3 px-3 font-bold text-sky-400 whitespace-nowrap max-w-[200px] truncate" title={rule.code}>{rule.code}</td>
+                  <td className="py-3 px-3 whitespace-nowrap">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border truncate inline-block max-w-[160px] ${rule.badgeColor}`} title={rule.category}>
                       {rule.category}
                     </span>
                   </td>
-                  <td className="py-3 font-bold text-[rgb(var(--color-text))]">{rule.channel}</td>
-                  <td className="py-3 text-[rgb(var(--color-muted))]">{rule.pacing}</td>
-                  <td className="py-3 text-[rgb(var(--color-text))]">{rule.trai}</td>
-                  <td className="py-3 text-right font-black text-violet-400">{rule.invariant}</td>
+                  <td className="py-3 px-3 font-bold text-[rgb(var(--color-text))] whitespace-nowrap max-w-[170px] truncate" title={rule.channel}>{rule.channel}</td>
+                  <td className="py-3 px-3 text-[rgb(var(--color-muted))] whitespace-nowrap">{rule.pacing}</td>
+                  <td className="py-3 px-3 text-[rgb(var(--color-text))] whitespace-nowrap">{rule.trai}</td>
+                  <td className="py-3 px-3 text-right font-black text-violet-400 whitespace-nowrap">{rule.invariant}</td>
                 </tr>
               ))}
             </tbody>
@@ -438,7 +438,7 @@ export const TabPolicyEngine: React.FC<TabPolicyEngineProps> = ({
         <div className="flex items-center justify-between pb-3 border-b-2 border-[rgb(var(--color-line))]">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-amber-400 stroke-[2.5]" />
-            <h3 className="duo-h3 text-sm">AI Failure Intent & Evidence-Bound Classifier</h3>
+            <h3 className="duo-h3 text-sm">AI Intent Classifier</h3>
           </div>
           <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
             EVIDENCE-BOUND CANDIDATE

@@ -1,13 +1,24 @@
 import React from 'react';
 import {
-  Sparkles,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
   ShieldCheck,
-  Landmark,
+  ArrowRight,
+  Server,
+  MessageSquare,
+  PhoneCall,
+  FileCode,
   Sliders,
-  Repeat,
-  ShoppingCart,
-  Building,
+  Check,
+  X,
+  UserCheck,
   Coins,
+  Bot,
+  RefreshCw,
+  Repeat,
+  FileCheck,
 } from 'lucide-react';
 import { ExecutionMode } from '../engine/types';
 import { EngineState } from '../types';
@@ -17,309 +28,490 @@ interface TabHomeProps {
   state: EngineState;
   onNavigateTab: (tabIndex: number) => void;
   onToggleMode: (mode: ExecutionMode) => void;
+  onToggleTrai?: (enforce: boolean) => void;
+  onApproveAction?: (entityId: string) => void;
+  onRejectAction?: (entityId: string, reason?: string) => void;
+  onUpdateBankStatus?: (bank: string, status: 'HEALTHY' | 'DEGRADED', mins: number) => void;
 }
 
 export const TabHome: React.FC<TabHomeProps> = ({
   state,
   onNavigateTab,
+  onToggleMode,
+  onToggleTrai,
+  onApproveAction,
+  onRejectAction,
+  onUpdateBankStatus,
 }) => {
-  const { ledger_summary } = state;
+  const { ledger_summary, ledger_chain, pending_queue, bank_cbs_health, dispatch_history, active_p2p, mode, enforce_trai } = state;
+
+  const isAutonomous = mode === ExecutionMode.AGENTIC_AUTONOMOUS;
+  const bankList = ['HDFC', 'SBIN', 'ICIC', 'UTIB', 'KKBK'];
+
+  // Current IST time check for TRAI window
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const istHour = Math.floor(((nowEpoch + 19800) % 86400) / 3600);
+  const isWithinTraiHours = istHour >= 8 && istHour < 19;
 
   return (
-    <div className="space-y-8 pb-6">
-      {/* Hero Section */}
-      <div className="p-8 sm:p-10 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-lg relative overflow-hidden">
-        <div className="max-w-3xl relative z-10 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/15 text-sky-400 border-2 border-sky-500/40 text-xs font-black font-mono-code uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
-            Enterprise Payment Recovery Engine
+    <div className="space-y-6 pb-8">
+      {/* 1. Operations Header & Live Engine Status */}
+      <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-md">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[rgb(var(--color-line))]">
+          <div className="space-y-1">
+            <h1 className="duo-h1 text-2xl sm:text-3xl text-[rgb(var(--color-text))] flex items-center gap-3">
+              <span>Overview</span>
+            </h1>
+            <p className="duo-body text-xs sm:text-sm">
+              Real-time failure telemetry, gateway health, automated dispatches, and review queue.
+            </p>
           </div>
 
-          <h1 className="duo-h1 text-3xl sm:text-4xl text-[rgb(var(--color-text))]">
-            Recover Failed Payments with Mathematical Precision
-          </h1>
+          {/* Direct Engine Status Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Mode Toggle Button */}
+            <button
+              onClick={() => onToggleMode(isAutonomous ? ExecutionMode.MANUAL_POLICY_GATED : ExecutionMode.AGENTIC_AUTONOMOUS)}
+              className={`px-3.5 py-2 rounded-2xl text-xs font-black uppercase font-mono-code transition-all border-2 border-b-4 flex items-center gap-2 cursor-pointer ${
+                isAutonomous
+                  ? 'bg-emerald-500/15 border-emerald-500/50 border-b-emerald-600 text-emerald-400 hover:bg-emerald-500/25'
+                  : 'bg-amber-500/15 border-amber-500/50 border-b-amber-600 text-amber-400 hover:bg-amber-500/25'
+              }`}
+              title="Click to toggle between Autonomous execution and Manual operator review"
+            >
+              {isAutonomous ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <Bot className="w-3.5 h-3.5" />
+                  <span>Autonomous Mode</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Manual Review Queue</span>
+                </>
+              )}
+            </button>
 
-          <p className="duo-body text-base sm:text-lg max-w-2xl text-[rgb(var(--color-muted))] leading-relaxed">
-            Revive replaces brute-force payment retries with an intelligent, TRAI-compliant recovery platform. We combine real-time bank CBS health monitoring, finite-horizon Markov Decision Processes, and localized conversational outreach to maximize recovery yield while protecting customer goodwill.
-          </p>
+            {/* TRAI Regulatory Gate Status */}
+            {onToggleTrai && (
+              <button
+                onClick={() => onToggleTrai(!enforce_trai)}
+                className={`px-3.5 py-2 rounded-2xl text-xs font-black uppercase font-mono-code transition-all border-2 border-b-4 flex items-center gap-2 cursor-pointer ${
+                  enforce_trai
+                    ? isWithinTraiHours
+                      ? 'bg-sky-500/15 border-sky-500/50 border-b-sky-600 text-sky-400 hover:bg-sky-500/25'
+                      : 'bg-indigo-500/15 border-indigo-500/50 border-b-indigo-600 text-indigo-400 hover:bg-indigo-500/25'
+                    : 'bg-slate-800 border-slate-700 border-b-slate-900 text-slate-400 hover:bg-slate-700'
+                }`}
+                title="Toggle TRAI commercial communications window (08:00–19:00 IST)"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>
+                  {enforce_trai
+                    ? isWithinTraiHours
+                      ? `TRAI Active (${istHour}:00 IST)`
+                      : `TRAI Deferred (+12h)`
+                    : 'TRAI Filter Off'}
+                </span>
+              </button>
+            )}
 
-          <div className="pt-3 flex flex-wrap items-center gap-3.5">
+            {/* Cryptographic Ledger Indicator */}
+            <div className="px-3.5 py-2 rounded-2xl text-xs font-mono-code font-bold bg-violet-500/15 border-2 border-violet-500/40 border-b-4 border-b-violet-600 text-violet-400 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>{ledger_chain.length} Blocks Verified</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Navigation Action Strip */}
+        <div className="pt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[rgb(var(--color-muted))] font-bold uppercase text-[10px] tracking-wider">
+              Quick Actions:
+            </span>
             <button
               onClick={() => onNavigateTab(1)}
-              className="px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all border-2 border-sky-700 border-b-4 active:border-b-2 active:translate-y-[2px] shadow-md cursor-pointer flex items-center gap-2"
+              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-sky-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-sky-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
             >
-              <Sparkles className="w-4 h-4 stroke-[2.5]" />
-              <span>Launch Agent Console</span>
+              <Bot className="w-3.5 h-3.5 text-sky-400" />
+              <span>Console</span>
             </button>
-
             <button
               onClick={() => onNavigateTab(2)}
-              className="px-6 py-3.5 rounded-2xl bg-[rgb(var(--color-surface))] hover:bg-[rgb(var(--color-line))] text-[rgb(var(--color-text))] font-black text-xs uppercase tracking-wider transition-all border-2 border-[rgb(var(--color-line))] border-b-4 active:border-b-2 active:translate-y-[2px] cursor-pointer flex items-center gap-2"
+              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-emerald-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-emerald-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
             >
-              <Coins className="w-4 h-4 stroke-[2.5] text-sky-400" />
-              <span>50-Batch Benchmark</span>
+              <Coins className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Benchmark</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab(3)}
+              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-amber-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-amber-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span>Policy</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab(4)}
+              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-violet-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-violet-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <FileCheck className="w-3.5 h-3.5 text-violet-400" />
+              <span>Ledger</span>
             </button>
           </div>
-        </div>
 
-        {/* Live Snapshot Badge in Hero */}
-        <div className="mt-8 pt-6 border-t-2 border-[rgb(var(--color-line))] grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div>
-            <span className="duo-label block text-[10px]">RECOVERY RATE</span>
-            <span className="duo-metric text-emerald-400 text-xl sm:text-2xl">
-              {ledger_summary.recovery_rate_pct.toFixed(1)}%
-            </span>
-          </div>
-          <div>
-            <span className="duo-label block text-[10px]">TOTAL RECOVERED</span>
-            <span className="duo-metric text-[rgb(var(--color-text))] text-xl sm:text-2xl">
-              {formatINR(ledger_summary.total_recovered_paise)}
-            </span>
-          </div>
-          <div>
-            <span className="duo-label block text-[10px]">OPERATIONAL MODE</span>
-            <span className="text-xs font-mono-code font-black text-sky-400 block mt-1">
-              {state.mode === ExecutionMode.AGENTIC_AUTONOMOUS ? 'AUTONOMOUS' : 'MANUAL REVIEW'}
-            </span>
-          </div>
-          <div>
-            <span className="duo-label block text-[10px]">LEDGER CHAIN</span>
-            <span className="text-xs font-mono-code font-black text-violet-400 block mt-1">
-              {state.ledger_chain.length} AUDITED BLOCKS
-            </span>
+          <div className="text-[11px] font-mono-code text-[rgb(var(--color-muted))]">
+            Subunit Standard: <strong className="text-[rgb(var(--color-text))]">Integer Paise</strong> (0 float drift)
           </div>
         </div>
       </div>
 
-      {/* 3 Core Architectural Pillars */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="duo-h2">
-            CORE ARCHITECTURAL PILLARS
-          </h2>
-          <p className="duo-body">
-            Deterministic safety boundaries and mathematical stopping invariants.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Pillar 1 */}
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-4 border-b-sky-600 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-sky-500/15 text-sky-400 border-2 border-sky-500/40 flex items-center justify-center font-bold mb-4">
-                <Landmark className="w-5 h-5 stroke-[2.5]" />
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="duo-h3 text-base">
-                  TRAI Chrono-Gate
-                </h3>
-                <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                  08:00–19:00 IST
-                </span>
-              </div>
-              <p className="duo-body leading-relaxed">
-                Zero spam outside regulatory calling hours. Customer outreach scheduled during off-hours is automatically deferred by +12h without dropping context, while machine-to-machine API retries remain active.
-              </p>
-            </div>
+      {/* 2. Core Financial Recovery & Operation Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Monitored Volume */}
+        <div className="p-5 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-4 border-b-sky-600 shadow-sm">
+          <div className="flex items-center justify-between text-[rgb(var(--color-muted))] text-xs font-black uppercase tracking-wider mb-2">
+            <span>Capital at Risk</span>
+            <Activity className="w-4 h-4 text-sky-400 stroke-[2.5]" />
           </div>
-
-          {/* Pillar 2 */}
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 border-2 border-emerald-500/40 flex items-center justify-center font-bold mb-4">
-                <Sliders className="w-5 h-5 stroke-[2.5]" />
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="duo-h3 text-base">
-                  MDP Net Yield Optimizer
-                </h3>
-                <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  E[R_net] &gt; 0
-                </span>
-              </div>
-              <p className="duo-body leading-relaxed">
-                Mathematical stopping rule based on a finite-horizon Markov Decision Process. Dynamically terminates retries at step $k^*$ when expected recovery yield drops below channel communication and fatigue costs.
-              </p>
-            </div>
+          <div className="duo-metric text-sky-400">
+            {formatINR(ledger_summary.total_initial_paise)}
           </div>
-
-          {/* Pillar 3 */}
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-violet-500/40 border-b-4 border-b-violet-600 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-violet-500/15 text-violet-400 border-2 border-violet-500/40 flex items-center justify-center font-bold mb-4">
-                <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="duo-h3 text-base">
-                  SHA-256 Audit Ledger
-                </h3>
-                <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
-                  MERKLE PROOFS
-                </span>
-              </div>
-              <p className="duo-body leading-relaxed">
-                Every recovery action, bank error classification, operator approval, and settled rupee is permanently recorded in an append-only SHA-256 hash chain with paisa-level financial integrity.
-              </p>
-            </div>
+          <div className="text-[10px] text-[rgb(var(--color-muted))] font-mono-code mt-1">
+            {ledger_summary.total_records} payments monitored
           </div>
         </div>
-      </div>
 
-      {/* 3 Core Recovery Channels */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="duo-h2">
-            THREE SPECIALIZED RECOVERY CHANNELS
-          </h2>
-          <p className="duo-body">
-            Tailored recovery workflows addressing the distinct dynamics of subscriptions, checkouts, and invoices.
-          </p>
+        {/* Total Recovered */}
+        <div className="p-5 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-sm">
+          <div className="flex items-center justify-between text-[rgb(var(--color-muted))] text-xs font-black uppercase tracking-wider mb-2">
+            <span>Capital Recovered</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
+          </div>
+          <div className="duo-metric text-emerald-400">
+            {formatINR(ledger_summary.total_recovered_paise)}
+          </div>
+          <div className="text-[10px] text-emerald-400 font-mono-code font-bold mt-1">
+            {ledger_summary.recovery_rate_pct.toFixed(1)}% recovery conversion
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center font-bold border border-sky-500/30">
-                    <Repeat className="w-4 h-4 stroke-[2.5]" />
-                  </div>
-                  <h3 className="duo-h3">Recurring Subscriptions</h3>
-                </div>
-                <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                  STREAM 1
-                </span>
-              </div>
-              <p className="duo-body leading-relaxed mb-4">
-                Handles recurring e-mandate and debit failures. Monitors bank gateway latency for cool-down pacing and sends localized WhatsApp nudges when customer account balances are low around salary cycles.
-              </p>
-            </div>
-            <div className="pt-3 border-t-2 border-[rgb(var(--color-line))] flex items-center justify-between text-xs font-mono-code">
-              <span className="text-[rgb(var(--color-muted))] font-bold">Benchmark Rate</span>
-              <span className="text-emerald-400 font-black">~78% Recovery</span>
-            </div>
+        {/* Net Recovered Yield */}
+        <div className="p-5 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-sm">
+          <div className="flex items-center justify-between text-[rgb(var(--color-muted))] text-xs font-black uppercase tracking-wider mb-2">
+            <span>Net Recovery Yield</span>
+            <Coins className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
           </div>
-
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center font-bold border border-amber-500/30">
-                    <ShoppingCart className="w-4 h-4 stroke-[2.5]" />
-                  </div>
-                  <h3 className="duo-h3">Abandoned Checkouts</h3>
-                </div>
-                <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                  STREAM 2
-                </span>
-              </div>
-              <p className="duo-body leading-relaxed mb-4">
-                Instantly captures dropped e-commerce cart sessions. Delivers pre-signed 1-click UPI payment links directly over WhatsApp within the high-intent 15-minute conversion window.
-              </p>
-            </div>
-            <div className="pt-3 border-t-2 border-[rgb(var(--color-line))] flex items-center justify-between text-xs font-mono-code">
-              <span className="text-[rgb(var(--color-muted))] font-bold">Benchmark Rate</span>
-              <span className="text-emerald-400 font-black">~82% Recovery</span>
-            </div>
+          <div className="duo-metric text-emerald-400">
+            {formatINR(ledger_summary.net_recovered_paise)}
           </div>
+          <div className="text-[10px] text-[rgb(var(--color-muted))] font-mono-code mt-1">
+            Less {formatINR(ledger_summary.total_cost_paise)} dispatch cost
+          </div>
+        </div>
 
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center font-bold border border-violet-500/30">
-                    <Building className="w-4 h-4 stroke-[2.5]" />
-                  </div>
-                  <h3 className="duo-h3">B2B Invoices</h3>
-                </div>
-                <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
-                  STREAM 3
-                </span>
-              </div>
-              <p className="duo-body leading-relaxed mb-4">
-                Provisions dedicated, auto-reconciling virtual bank accounts (NEFT / RTGS / IMPS / UPI) with real-time webhook listeners to settle high-value commercial accounts receivables instantly.
-              </p>
-            </div>
-            <div className="pt-3 border-t-2 border-[rgb(var(--color-line))] flex items-center justify-between text-xs font-mono-code">
-              <span className="text-[rgb(var(--color-muted))] font-bold">Benchmark Rate</span>
-              <span className="text-emerald-400 font-black">~88% Recovery</span>
-            </div>
+        {/* Review Queue */}
+        <div className="p-5 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-amber-500/40 border-b-4 border-b-amber-600 shadow-sm">
+          <div className="flex items-center justify-between text-[rgb(var(--color-muted))] text-xs font-black uppercase tracking-wider mb-2">
+            <span>Review Queue</span>
+            <UserCheck className="w-4 h-4 text-amber-400 stroke-[2.5]" />
+          </div>
+          <div className="duo-metric text-amber-400">
+            {pending_queue.length}
+          </div>
+          <div className="text-[10px] text-[rgb(var(--color-muted))] font-mono-code mt-1">
+            {pending_queue.length === 0 ? 'Queue cleared' : 'Awaiting signoff'}
+          </div>
+        </div>
+
+        {/* Active PTP */}
+        <div className="p-5 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-violet-500/40 border-b-4 border-b-violet-600 shadow-sm">
+          <div className="flex items-center justify-between text-[rgb(var(--color-muted))] text-xs font-black uppercase tracking-wider mb-2">
+            <span>Active PTP Freeze</span>
+            <Clock className="w-4 h-4 text-violet-400 stroke-[2.5]" />
+          </div>
+          <div className="duo-metric text-violet-400">
+            {active_p2p.length}
+          </div>
+          <div className="text-[10px] text-violet-400 font-mono-code mt-1">
+            Promises in grace period
           </div>
         </div>
       </div>
 
-      {/* How It Works: 4-Stage Lifecycle */}
-      <div className="p-8 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm space-y-6">
-        <div>
-          <h2 className="duo-h2">
-            THE 4-STAGE RECOVERY LIFECYCLE
-          </h2>
-          <p className="duo-body">
-            From initial gateway webhook failure to final cryptographic ledger settlement.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div
-            onClick={() => onNavigateTab(3)}
-            className="p-5 rounded-2xl bg-[rgb(var(--color-surface))] border-2 border-sky-500/40 border-b-4 border-b-sky-600 hover:border-sky-400 cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-500/15 text-sky-400 border-2 border-sky-500/40">
-                STAGE 01
-              </span>
-              <h3 className="duo-h3">Ingest & Diagnose</h3>
+      {/* 3. Human-in-the-Loop Review Queue */}
+      {pending_queue.length > 0 && (
+        <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-amber-500/50 border-b-6 border-b-amber-600 shadow-md space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[rgb(var(--color-line))]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center font-bold border border-amber-500/30">
+                <AlertTriangle className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <div>
+                <h2 className="duo-h2 text-base text-amber-400">
+                  Review Queue ({pending_queue.length})
+                </h2>
+                <p className="duo-body text-xs">
+                  Review recommendations generated under Manual Policy-Gated mode before customer dispatch.
+                </p>
+              </div>
             </div>
-            <p className="duo-body">
-              Captures raw payment webhooks, matches error codes against live bank CBS health, and infers customer intent via Gemini AI.
-            </p>
+            <span className="text-[10px] font-mono-code font-black px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              ACTION REQUIRED
+            </span>
           </div>
 
-          <div
-            onClick={() => onNavigateTab(3)}
-            className="p-5 rounded-2xl bg-[rgb(var(--color-surface))] border-2 border-amber-500/40 border-b-4 border-b-amber-600 hover:border-amber-400 cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-400 border-2 border-amber-500/40">
-                STAGE 02
-              </span>
-              <h3 className="duo-h3">Policy Gate</h3>
-            </div>
-            <p className="duo-body">
-              Evaluates TRAI hours, PTP freeze states, terminal halt conditions, and solves the MDP net yield equation (E[R_net] &gt; 0).
-            </p>
-          </div>
+          <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+            {pending_queue.map((item) => (
+              <div
+                key={item.entity_id}
+                className="p-4 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="space-y-1 overflow-hidden">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="font-mono-code font-black text-sm text-[rgb(var(--color-text))] truncate max-w-[150px]" title={item.entity_id}>
+                      {item.entity_id}
+                    </span>
+                    <span className="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 shrink-0">
+                      {item.event?.issuing_bank || 'BANK'} · {item.event?.raw_error_code || 'FAILURE'}
+                    </span>
+                    <span className="font-mono-code font-bold text-xs text-emerald-400 shrink-0">
+                      {item.event?.gross_amount_paise ? formatINR(item.event.gross_amount_paise) : '₹0.00'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[rgb(var(--color-muted))] truncate">
+                    Channel: <strong className="text-[rgb(var(--color-text))]">{item.action?.channel || 'WHATSAPP_HINGLISH'}</strong> | MDP Yield: <span className="text-emerald-400 font-mono-code">E[R<sub className="font-sans text-[8px] font-bold">net</sub>] &gt; 0</span>
+                  </p>
+                </div>
 
-          <div
-            onClick={() => onNavigateTab(1)}
-            className="p-5 rounded-2xl bg-[rgb(var(--color-surface))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 hover:border-emerald-400 cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border-2 border-emerald-500/40">
-                STAGE 03
-              </span>
-              <h3 className="duo-h3">Targeted Outreach</h3>
-            </div>
-            <p className="duo-body">
-              Dispatches localized Hinglish WhatsApp messages with pre-signed 1-click links, automated IVR calls, or silent API retries.
-            </p>
-          </div>
-
-          <div
-            onClick={() => onNavigateTab(4)}
-            className="p-5 rounded-2xl bg-[rgb(var(--color-surface))] border-2 border-violet-500/40 border-b-4 border-b-violet-600 hover:border-violet-400 cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-violet-500/15 text-violet-400 border-2 border-violet-500/40">
-                STAGE 04
-              </span>
-              <h3 className="duo-h3">Cryptographic Proof</h3>
-            </div>
-            <p className="duo-body">
-              Appends a SHA-256 block hash for every transition, tracks recovered rupee balances, and maintains a tamper-proof audit trail.
-            </p>
+                <div className="flex items-center gap-2 shrink-0">
+                  {onApproveAction && (
+                    <button
+                      onClick={() => onApproveAction(item.entity_id)}
+                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all border-2 border-emerald-600 border-b-4 active:border-b-2 active:translate-y-[2px] shadow-sm flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Approve & Dispatch</span>
+                    </button>
+                  )}
+                  {onRejectAction && (
+                    <button
+                      onClick={() => onRejectAction(item.entity_id, 'OPERATOR_REJECTED')}
+                      className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs uppercase tracking-wider transition-all border border-rose-500/30 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Reject & Halt</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      )}
+
+      {/* 4. Bank CBS Gateway Latency & Pacing Matrix */}
+      <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[rgb(var(--color-line))]">
+          <div>
+            <h2 className="duo-h2 flex items-center gap-2 text-base">
+              <Server className="w-4 h-4 text-sky-400 stroke-[2.5]" />
+              <span>Bank Gateways</span>
+            </h2>
+            <p className="duo-body text-xs">
+              Monitors bank core availability. When an issuing bank degrades, retries are paced to protect authorization mandates.
+            </p>
+          </div>
+          <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30 w-fit">
+            5 CONNECTED GATEWAYS
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {bankList.map((bank) => {
+            const info = bank_cbs_health[bank] || { status: 'HEALTHY', avg_recovery_mins: 0 };
+            const isHealthy = info.status === 'HEALTHY';
+            return (
+              <div
+                key={bank}
+                className={`p-3.5 rounded-2xl border-2 border-b-4 transition-all flex flex-col justify-between ${
+                  isHealthy
+                    ? 'bg-[rgb(var(--color-surface))] border-emerald-500/40 border-b-emerald-600'
+                    : 'bg-rose-500/10 border-rose-500/50 border-b-rose-600'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono-code font-black text-sm text-[rgb(var(--color-text))]">
+                      {bank}
+                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isHealthy ? 'bg-emerald-400' : 'bg-rose-500 animate-pulse'
+                      }`}
+                    />
+                  </div>
+                  <div className="text-[11px] font-mono-code font-bold mb-2.5">
+                    {isHealthy ? (
+                      <span className="text-emerald-400">HEALTHY (0m)</span>
+                    ) : (
+                      <span className="text-rose-400">DOWN ({info.avg_recovery_mins || 45}m pacing)</span>
+                    )}
+                  </div>
+                </div>
+
+                {onUpdateBankStatus && (
+                  <div className="flex gap-1.5 pt-2 border-t border-[rgb(var(--color-line))]">
+                    <button
+                      onClick={() => onUpdateBankStatus(bank, 'HEALTHY', 0)}
+                      className={`flex-1 py-1 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
+                        isHealthy
+                          ? 'bg-emerald-500 text-slate-950 font-black'
+                          : 'bg-[rgb(var(--color-card))] hover:bg-emerald-500/20 text-[rgb(var(--color-muted))]'
+                      }`}
+                    >
+                      Healthy
+                    </button>
+                    <button
+                      onClick={() => onUpdateBankStatus(bank, 'DEGRADED', 45)}
+                      className={`flex-1 py-1 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
+                        !isHealthy
+                          ? 'bg-rose-500 text-white font-black'
+                          : 'bg-[rgb(var(--color-card))] hover:bg-rose-500/20 text-[rgb(var(--color-muted))]'
+                      }`}
+                    >
+                      Pacing (45m)
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 5. Active Promise-to-Pay (PTP) Registry & Freeze Pipeline */}
+      {active_p2p.length > 0 && (
+        <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-violet-500/40 border-b-4 border-b-violet-600 shadow-sm space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-[rgb(var(--color-line))]">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-violet-400 stroke-[2.5]" />
+              <h2 className="duo-h2 text-base text-violet-400">
+                Active Promises ({active_p2p.length})
+              </h2>
+            </div>
+            <span className="text-[10px] font-mono-code font-black px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
+              RBI FAIR RECOVERY COMPLIANT
+            </span>
+          </div>
+
+          <div className="divide-y divide-[rgb(var(--color-line))] max-h-[260px] overflow-y-auto pr-1">
+            {active_p2p.map((ptp, i) => {
+              const epochDate = ptp.ptp_epoch ? new Date(ptp.ptp_epoch * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Pending';
+              return (
+                <div key={i} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="overflow-hidden">
+                    <span className="font-mono-code font-black text-[rgb(var(--color-text))] truncate max-w-[150px] inline-block align-middle" title={ptp.entity_id}>
+                      {ptp.entity_id}
+                    </span>
+                    <span className="mx-2 text-[rgb(var(--color-line))]">·</span>
+                    <span className="text-[rgb(var(--color-muted))] truncate max-w-[240px] inline-block align-middle" title={ptp.ptp_note || 'Customer promise registered'}>
+                      Note: "{ptp.ptp_note || 'Customer promise registered'}"
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono-code text-[11px] text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20 whitespace-nowrap">
+                      Frozen until: {epochDate} IST
+                    </span>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                      NO RETRIES
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Live Recovery Dispatch Activity Feed */}
+      <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[rgb(var(--color-line))]">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-sky-400 stroke-[2.5]" />
+            <h2 className="duo-h2 text-base">
+              Recent Dispatches
+            </h2>
+          </div>
+          <span className="text-[10px] font-mono-code font-black text-[rgb(var(--color-muted))]">
+            Showing {Math.min(dispatch_history.length, 10)} of {dispatch_history.length} events
+          </span>
+        </div>
+
+        {dispatch_history.length === 0 ? (
+          <div className="p-8 text-center text-xs text-[rgb(var(--color-muted))] space-y-2">
+            <p>No dispatches recorded yet in current session.</p>
+            <button
+              onClick={() => onNavigateTab(2)}
+              className="px-4 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 font-bold transition-all cursor-pointer"
+            >
+              Run Benchmark
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-2xl border-2 border-[rgb(var(--color-line))] shadow-inner">
+            <table className="w-full text-left text-xs font-mono-code relative">
+              <thead className="sticky top-0 bg-[rgb(var(--color-surface))] z-10 shadow-xs">
+                <tr className="border-b border-[rgb(var(--color-line))] text-[rgb(var(--color-muted))] text-[10px] uppercase">
+                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[130px]">Dispatch ID</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[160px]">Channel</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[130px]">Recipient</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[110px]">Status</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap min-w-[90px]">Channel Fee</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap min-w-[100px]">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[rgb(var(--color-line))] bg-[rgb(var(--color-card))]">
+                {dispatch_history.slice(-8).reverse().map((d, idx) => (
+                  <tr key={idx} className="hover:bg-[rgb(var(--color-surface))] transition-colors">
+                    <td className="py-2.5 px-3 font-black text-[rgb(var(--color-text))] whitespace-nowrap max-w-[140px] truncate" title={d.dispatch_id || `disp_${idx}`}>
+                      {d.dispatch_id || `disp_${idx}`}
+                    </td>
+                    <td className="py-2.5 px-3 whitespace-nowrap max-w-[170px]">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold truncate max-w-[160px] inline-block ${
+                        d.channel?.includes('WHATSAPP')
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : d.channel?.includes('VOICE') || d.channel?.includes('IVR')
+                          ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                          : d.channel?.includes('VIRTUAL')
+                          ? 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+                          : 'bg-slate-800 text-slate-300 border border-slate-700'
+                      }`} title={d.channel || 'SILENT_API_RETRY'}>
+                        {d.channel || 'SILENT_API_RETRY'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-[rgb(var(--color-muted))] font-mono-code whitespace-nowrap max-w-[140px] truncate" title={d.to || 'API Gateway'}>
+                      {d.to || 'API Gateway'}
+                    </td>
+                    <td className="py-2.5 px-3 whitespace-nowrap">
+                      <span className="text-emerald-400 font-bold">
+                        {d.status || 'DISPATCHED'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-[rgb(var(--color-muted))] whitespace-nowrap">
+                      {d.channel?.includes('VOICE') ? '₹1.20' : d.channel?.includes('API') ? '₹0.00' : '₹0.60'}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-[rgb(var(--color-muted))] text-[10px] whitespace-nowrap">
+                      {d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : 'Just now'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -32,6 +32,8 @@ interface HeaderProps {
   enforceTrai: boolean;
   onToggleTrai: (v: boolean) => void;
   onReset: () => void;
+  backendConnected?: boolean;
+  fastapiUrl?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -45,6 +47,8 @@ export const Header: React.FC<HeaderProps> = ({
   enforceTrai,
   onToggleTrai,
   onReset,
+  backendConnected,
+  fastapiUrl,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -74,40 +78,35 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="border-b border-[rgb(var(--color-line))] bg-[rgb(var(--color-card))] sticky top-0 z-50 shadow-xs backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-3">
+        <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center h-16 gap-3">
           
-          {/* Left: Brand Identity */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Left: Clean Brand Identity (No clutter, no version tag, no badge) */}
+          <div className="flex items-center justify-start shrink-0">
             <button
               onClick={() => setActiveTab(0)}
-              className="flex items-center gap-2.5 text-left focus:outline-none group cursor-pointer"
-              title="Return to Executive Overview"
+              className="flex items-center gap-3 text-left focus:outline-none group cursor-pointer"
+              title="Return to Overview"
             >
-              <div className="w-9 h-9 rounded-xl bg-sky-500 text-slate-950 flex items-center justify-center font-black shadow-xs group-hover:bg-sky-400 transition-colors">
+              <div className="w-9 h-9 rounded-xl bg-sky-500 text-slate-950 flex items-center justify-center font-black shadow-xs group-hover:bg-sky-400 transition-colors shrink-0">
                 <Zap className="w-5 h-5 fill-current" />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold tracking-tight text-base text-[rgb(var(--color-text))]">
-                    REVIVE
-                  </span>
-                  <span className="text-[10px] font-mono-code font-bold px-1.5 py-0.2 bg-sky-500/15 text-sky-400 rounded">
-                    v2.0
-                  </span>
-                </div>
-                <span className="hidden xl:block text-[10px] text-[rgb(var(--color-muted))] -mt-0.5">
-                  Autonomous Recovery Engine
+              <div className="flex flex-col">
+                <span className="font-extrabold tracking-tight text-base text-[rgb(var(--color-text))] leading-none">
+                  REVIVE
+                </span>
+                <span className="text-[11px] text-[rgb(var(--color-muted))] font-medium tracking-wide mt-1 leading-none">
+                  Revenue Recovery Engine
                 </span>
               </div>
             </button>
           </div>
 
-          {/* Center / Left-Center: Consolidated Page Navigation Navbar */}
+          {/* Center: Consolidated Page Navigation Navbar with Proper Padding & Centering */}
           <nav
             aria-label="Main Navigation"
-            className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none max-w-full justify-start lg:justify-center flex-1 mx-2"
+            className="flex items-center justify-center overflow-x-auto py-1 scrollbar-none px-2"
           >
-            <div className="flex items-center gap-1 bg-[rgb(var(--color-surface))] p-1 rounded-xl border border-[rgb(var(--color-line))]">
+            <div className="flex items-center gap-1.5 bg-[rgb(var(--color-surface))] p-1.5 rounded-2xl border border-[rgb(var(--color-line))] shadow-xs">
               {tabs.map((tab, idx) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === idx;
@@ -116,23 +115,23 @@ export const Header: React.FC<HeaderProps> = ({
                     key={tab.label}
                     onClick={() => setActiveTab(idx)}
                     title={tab.label}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer select-none ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer select-none ${
                       isActive
                         ? 'bg-sky-500 text-slate-950 font-bold shadow-xs'
                         : 'text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] hover:bg-[rgb(var(--color-card))]'
                     }`}
                   >
                     <Icon className={`w-3.5 h-3.5 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
-                    <span className="hidden md:inline">{tab.label}</span>
-                    <span className="inline md:hidden">{tab.shortLabel || tab.label.split(' ')[0]}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="inline sm:hidden">{tab.shortLabel || tab.label}</span>
                   </button>
                 );
               })}
             </div>
           </nav>
 
-          {/* Right: Clean, Icon-Only System Settings Trigger */}
-          <div className="relative shrink-0" ref={menuRef}>
+          {/* Right: Clean System Settings Trigger & Popover Menu */}
+          <div className="flex items-center justify-end shrink-0 relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className={`relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all cursor-pointer select-none ${
@@ -172,6 +171,23 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+
+                {/* Gateway & Backend Service Status */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-xs font-mono-code">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                    <span className="text-[rgb(var(--color-muted))] text-[11px] font-medium">Gateway Service</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      backendConnected
+                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                    }`}
+                  >
+                    {backendConnected ? 'FASTAPI_CONNECTED' : 'STANDALONE_HYBRID'}
+                  </span>
                 </div>
 
                 {/* Section 1: Execution Mode */}

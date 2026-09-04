@@ -167,7 +167,7 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="duo-h2">
-              AUDIT TRAIL PROGRESSION
+              Recovery Progression
             </h2>
             <p className="duo-body text-xs">
               Cumulative recovered capital vs. communication dispatch costs across block transitions
@@ -230,7 +230,7 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="duo-h2">
-              LEDGER BLOCK EXPLORER
+              Block Explorer
             </h2>
             <p className="duo-body text-xs">
               Every payment state transition is an immutable SHA-256 Merkle link
@@ -294,20 +294,20 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono-code">
-            <thead>
-              <tr className="border-b-2 border-[rgb(var(--color-line))] text-[rgb(var(--color-muted))]">
-                <th className="pb-3">Block ID</th>
-                <th className="pb-3">Entity ID</th>
-                <th className="pb-3">Initial Amount</th>
-                <th className="pb-3">Status</th>
-                <th className="pb-3">Cost</th>
-                <th className="pb-3">SHA-256 Hash</th>
-                <th className="pb-3 text-right">Audit</th>
+        <div className="overflow-x-auto overflow-y-auto max-h-[480px] rounded-2xl border-2 border-[rgb(var(--color-line))] shadow-inner">
+          <table className="w-full text-left text-xs font-mono-code relative">
+            <thead className="bg-[rgb(var(--color-surface))] border-b-2 border-[rgb(var(--color-line))] text-[rgb(var(--color-muted))] select-none sticky top-0 z-10 shadow-xs">
+              <tr>
+                <th className="py-3 px-3 min-w-[90px] whitespace-nowrap">Block ID</th>
+                <th className="py-3 px-3 min-w-[140px] whitespace-nowrap">Entity ID</th>
+                <th className="py-3 px-3 min-w-[110px] whitespace-nowrap">Initial Amount</th>
+                <th className="py-3 px-3 min-w-[170px] whitespace-nowrap">Status</th>
+                <th className="py-3 px-3 min-w-[90px] whitespace-nowrap">Cost</th>
+                <th className="py-3 px-3 min-w-[160px] whitespace-nowrap">SHA-256 Hash</th>
+                <th className="py-3 px-3 min-w-[80px] text-right whitespace-nowrap">Audit</th>
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-[rgb(var(--color-line))]">
+            <tbody className="divide-y-2 divide-[rgb(var(--color-line))] bg-[rgb(var(--color-card))]">
               {filteredChain.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-[rgb(var(--color-muted))] font-medium">
@@ -324,16 +324,16 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
 
                   return (
                     <tr key={logId} className="hover:bg-[rgb(var(--color-surface))]/50 transition-colors">
-                      <td className="py-3 font-mono-code text-[11px] font-bold text-[rgb(var(--color-text))]">
+                      <td className="py-3 px-3 font-mono-code text-[11px] font-bold text-[rgb(var(--color-text))] whitespace-nowrap">
                         #{logId.length >= 6 ? logId.slice(-6) : logId}
                       </td>
-                      <td className="py-3 font-mono-code text-sky-400 font-black">
+                      <td className="py-3 px-3 font-mono-code text-sky-400 font-black whitespace-nowrap max-w-[150px] truncate" title={entry?.entity_id || 'N/A'}>
                         {entry?.entity_id || 'N/A'}
                       </td>
-                      <td className="py-3 font-mono-code font-bold text-[rgb(var(--color-text))]">
+                      <td className="py-3 px-3 font-mono-code font-bold text-[rgb(var(--color-text))] whitespace-nowrap">
                         {formatINR(entry?.initial_amount_paise || 0)}
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 px-3 whitespace-nowrap">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-black ${
                             isRecovered
@@ -346,13 +346,13 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
                           {status}
                         </span>
                       </td>
-                      <td className="py-3 font-mono-code font-bold text-violet-400">
+                      <td className="py-3 px-3 font-mono-code font-bold text-violet-400 whitespace-nowrap">
                         {formatINR(entry?.total_cost_incurred_paise || 0)}
                       </td>
-                      <td className="py-3 font-mono-code text-[10px] text-[rgb(var(--color-muted))] font-medium truncate max-w-[120px]">
+                      <td className="py-3 px-3 font-mono-code text-[10px] text-[rgb(var(--color-muted))] font-medium truncate max-w-[150px] whitespace-nowrap" title={currentHash || 'N/A'}>
                         {currentHash ? `${currentHash.slice(0, 16)}...` : 'N/A'}
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 px-3 text-right whitespace-nowrap">
                         <button
                           onClick={() => handleInspectProof(logId)}
                           className="px-3 py-1 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-sky-500/20 text-sky-400 border-2 border-sky-500/40 border-b-4 border-b-sky-600 text-xs font-black active:border-b-2 active:translate-y-[2px] transition-all cursor-pointer"
@@ -376,7 +376,7 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
             <div className="flex items-center justify-between pb-3 border-b-2 border-[rgb(var(--color-line))]">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
-                <h3 className="duo-h3">CRYPTOGRAPHIC BLOCK AUDIT PROOF</h3>
+                <h3 className="duo-h3">Block Proof</h3>
               </div>
               <button
                 onClick={() => setSelectedProof(null)}

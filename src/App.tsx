@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
+  Activity,
   Bot,
   BarChart2,
   Sliders,
@@ -12,6 +12,7 @@ import { TabAgentConsole } from './components/TabAgentConsole';
 import { TabBenchmark } from './components/TabBenchmark';
 import { TabPolicyEngine } from './components/TabPolicyEngine';
 import { TabLedger } from './components/TabLedger';
+import { Footer } from './components/Footer';
 import { ExecutionMode, TelemetryEvent, AIIntentResponse } from './engine/types';
 import { DashboardTheme, EngineState } from './types';
 import { ReviveOrchestrator } from './engine/orchestrator';
@@ -250,13 +251,13 @@ export default function App() {
     return clientOrchestrator.ledger.verifyBlockProof(logId);
   };
 
-  // 5 Crisp, Consolidated Navigation Tabs
+  // 5 Canonical Navigation Tabs
   const tabs = [
-    { label: 'Executive Overview', shortLabel: 'Overview', icon: Sparkles },
-    { label: 'Agent Console', shortLabel: 'Console', icon: Bot },
-    { label: 'Batch Benchmark', shortLabel: 'Benchmark', icon: BarChart2 },
-    { label: 'Policy & Math Engine', shortLabel: 'Policy & Math', icon: Sliders },
-    { label: 'Audit Ledger', shortLabel: 'Ledger', icon: ShieldCheck },
+    { label: 'Overview', shortLabel: 'Overview', icon: Activity },
+    { label: 'Console', shortLabel: 'Console', icon: Bot },
+    { label: 'Benchmark', shortLabel: 'Benchmark', icon: BarChart2 },
+    { label: 'Policy', shortLabel: 'Policy', icon: Sliders },
+    { label: 'Ledger', shortLabel: 'Ledger', icon: ShieldCheck },
   ];
 
   return (
@@ -273,6 +274,8 @@ export default function App() {
         enforceTrai={state.enforce_trai}
         onToggleTrai={handleToggleTrai}
         onReset={handleReset}
+        backendConnected={state.backend_connected}
+        fastapiUrl={state.fastapi_url}
       />
 
       {/* Main Content Area */}
@@ -284,6 +287,10 @@ export default function App() {
               state={state}
               onNavigateTab={(tabIdx) => setActiveTab(tabIdx)}
               onToggleMode={handleToggleMode}
+              onToggleTrai={handleToggleTrai}
+              onApproveAction={handleApprove}
+              onRejectAction={handleReject}
+              onUpdateBankStatus={handleUpdateBankStatus}
             />
           )}
           {activeTab === 1 && (
@@ -309,19 +316,11 @@ export default function App() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[rgb(var(--color-line))] bg-[rgb(var(--color-card))] py-4 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[rgb(var(--color-muted))] gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span className="font-bold text-[rgb(var(--color-text))]">REVIVE</span>
-            <span>— Automated Payment Recovery & Audit Engine</span>
-          </div>
-          <div className="font-mono-code text-[11px]">
-            TRAI Compliant (08:00–19:00 IST) | Immutable SHA-256 Ledger
-          </div>
-        </div>
-      </footer>
+      {/* Enterprise Production Footer */}
+      <Footer
+        enforceTrai={state.enforce_trai}
+        backendConnected={state.backend_connected}
+      />
     </div>
   );
 }

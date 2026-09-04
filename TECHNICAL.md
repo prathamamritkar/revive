@@ -21,7 +21,7 @@
 
 | Layer | Technology & File | Responsibility |
 | --- | --- | --- |
-| **Presentation Layer** | Streamlit, Plus Jakarta Sans, JetBrains Mono ([dashboard.py](./dashboard.py)) | 5-tab command center: Theme & Automation Mode selector (`Agentic` vs `Manual`), KPI cards, CBS diagnostic inspector, MDP simulator, WhatsApp/Voice sandbox, SHA-256 ledger explorer. |
+| **Presentation Layer** | React & Vite (`src/`), Streamlit (`dashboard.py`) | 5 canonical modules: Overview, Console, Benchmark, Policy, Ledger. Mode switcher (`Autonomous` vs `Manual Review`), review queue, and interactive event simulation. |
 | **API Boundary** | FastAPI, Pydantic v2 ([app.py](./app.py)) | Endpoint routing (`/webhook/payment`, `/api/v1/ptp/commit`, `/api/v1/readiness`, `/api/event`, `/api/benchmark`), HMAC signature verification. |
 | **Layer 1: Telemetry Diagnostic** | Python, CBS matrix dictionary ([src/classifier.py](./src/classifier.py)) | Diagnoses raw telemetry error signatures against issuing bank core banking system health matrix (HDFC, SBIN, ICIC, UTIB, KKBK). |
 | **Layer 2: Policy & Agentic Orchestrator** | Python, MDP Bellman formulation ([src/orchestrator.py](./src/orchestrator.py)) | TRAI 08:00–19:00 IST chrono-gate (+12h shift), Promise-to-Pay (PTP) freeze epochs, MDP net yield stopping bounds, `MAX_ATTEMPTS = 3` caps, decision trace logging. |

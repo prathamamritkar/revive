@@ -35,6 +35,7 @@ export interface CustomerScenarioPreset {
   amountPaise: number;
   bank: string;
   initialError: string;
+  customerName?: string;
 }
 
 export const PRESET_CUSTOMER_SCENARIOS: CustomerScenarioPreset[] = [

@@ -41,4 +41,6 @@ export interface EngineState {
     p2p_status?: P2PStatus;
     [key: string]: any;
   }>;
+  backend_connected?: boolean;
+  fastapi_url?: string;
 }

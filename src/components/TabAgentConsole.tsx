@@ -130,17 +130,25 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
         .replace(/["'•*#_~]/g, '')
         .trim();
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.95;
+      utterance.rate = 0.92;
       utterance.pitch = 1.0;
+      utterance.lang = 'hi-IN';
 
       const voices = window.speechSynthesis.getVoices();
-      const matchVoice = voices.find(
-        (v) =>
-          v.lang.toLowerCase().includes('hi') ||
-          v.lang.toLowerCase().includes('in') ||
-          v.name.toLowerCase().includes('india') ||
-          v.name.toLowerCase().includes('hindi')
-      );
+      const matchVoice =
+        voices.find(
+          (v) =>
+            v.lang === 'hi-IN' ||
+            v.lang.replace('_', '-').toLowerCase() === 'hi-in' ||
+            v.name.toLowerCase().includes('hindi')
+        ) ||
+        voices.find(
+          (v) =>
+            v.lang.toLowerCase().includes('hi') ||
+            (v.lang.toLowerCase().includes('in') && v.name.toLowerCase().includes('india'))
+        ) ||
+        voices.find((v) => v.lang.toLowerCase().includes('in'));
+
       if (matchVoice) {
         utterance.voice = matchVoice;
       }
@@ -270,26 +278,39 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
   };
 
   // Voice IVR Simulation Handlers with Speech Synthesis
+  const buildHinglishIvrScript = () => {
+    const custName = selectedScenario.customerName || 'Priya';
+    const refId = selectedScenario.entityId;
+    const amountInr = Math.floor(selectedScenario.amountPaise / 100);
+    return `Namaste ${custName}. Aapke order reference ${refId} ka payment Rs. ${amountInr} network issue ki wajah se ruk gaya tha. Aap hamare 1-click Razorpay link se bina kisi rukawat ke payment complete kar sakte hain. Kal subah pay karne ke liye 1 dabayein, abhi link paane ke liye 2 dabayein.`;
+  };
+
+  const handlePlayVoiceIvrCall = () => {
+    const script = buildHinglishIvrScript();
+    setIvrCallState('connected');
+    setIvrTranscript([
+      '[Connecting]: Outbound voice gateway active (hi-IN synthesis)...',
+      `[Agent Voice IVR]: "${script}"`,
+    ]);
+    speakText(script);
+  };
+
   const handleStartIvrCall = () => {
     setIvrCallState('calling');
     setIvrTranscript(['Connecting outbound call via Twilio Voice gateway (+918045689000)...']);
 
     setTimeout(() => {
       setIvrCallState('connected');
-      const greetingScript = `Namaste! Yeh Revive automated recovery service hai. Aapka ₹${(
-        selectedScenario.amountPaise / 100
-      ).toFixed(2)} ka mandate pending hai. Agar aap kal subah 10 baje pay karna chahte hain toh 1 dabayein. WhatsApp par 1-click link pane ke liye 2 dabayein. Support agent se baat karne ke liye 3 dabayein.`;
+      const script = buildHinglishIvrScript();
 
       setIvrTranscript((prev) => [
         ...prev,
-        `[Agent Voice (Hinglish)]: "Namaste! Yeh Revive automated recovery service hai. Aapka ₹${(
-          selectedScenario.amountPaise / 100
-        ).toFixed(2)} ka mandate pending hai."`,
-        `[Agent Voice]: "Agar aap kal subah 10 baje pay karna chahte hain toh 1 dabayein. WhatsApp par 1-click link pane ke liye 2 dabayein. Support agent se baat karne ke liye 3 dabayein."`,
+        `[Agent Voice (hi-IN)]: "${script}"`,
+        `[Interactive Prompt]: "Kal subah 10 baje pay karne ke liye 1 dabayein. WhatsApp link paane ke liye 2 dabayein."`,
       ]);
 
-      speakText(greetingScript);
-    }, 1200);
+      speakText(script);
+    }, 1000);
   };
 
   const handleEndIvrCall = () => {
@@ -347,15 +368,11 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
       {/* Top Header Banner */}
       <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/15 text-sky-400 border-2 border-sky-500/40 text-xs font-black font-mono-code uppercase tracking-wider">
-            <Bot className="w-3.5 h-3.5 stroke-[2.5]" />
-            Live Simulation
-          </div>
           <h1 className="duo-h1 text-2xl sm:text-3xl text-[rgb(var(--color-text))]">
-            Autonomous Recovery Agent Console
+            Console
           </h1>
           <p className="duo-body text-xs sm:text-sm">
-            Observe perception, classification, mathematical MDP yield optimization, and multi-channel execution in real time.
+            Interactive triage, Hinglish voice IVR speech, and telemetry webhook simulation.
           </p>
         </div>
 
@@ -578,7 +595,7 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
               <div className="flex items-center justify-between pb-3 border-b-2 border-slate-800">
                 <div className="flex items-center gap-2">
                   <Volume2 className="w-5 h-5 text-sky-400" />
-                  <span className="duo-h3 text-base text-slate-100">Outbound Voice IVR Call Simulator</span>
+                  <span className="duo-h3 text-base text-slate-100">Voice IVR Call</span>
                 </div>
                 <span
                   className={`text-[10px] font-mono-code font-bold px-2.5 py-0.5 rounded-full ${
@@ -593,7 +610,15 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
 
               {/* Call Controls & Audio Waveform Visualizer */}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handlePlayVoiceIvrCall}
+                    className="px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider border-2 border-emerald-600 border-b-4 active:border-b-2 active:translate-y-[2px] transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Play Voice IVR Call</span>
+                  </button>
+
                   <button
                     onClick={handleStartIvrCall}
                     disabled={ivrCallState === 'calling' || ivrCallState === 'connected'}
@@ -720,7 +745,7 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
               <div className="flex items-center justify-between pb-3 border-b-2 border-slate-800">
                 <div className="flex items-center gap-2">
                   <FileCode className="w-5 h-5 text-violet-400" />
-                  <span className="duo-h3 text-base text-slate-100">Live TwiML Voice Script XML</span>
+                  <span className="duo-h3 text-base text-slate-100">TwiML Script</span>
                 </div>
                 <button
                   onClick={() =>
@@ -759,7 +784,7 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
                   <Sparkles className="w-4 h-4 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="duo-h3 text-sm">Agent Reasoning Trace</h3>
+                  <h3 className="duo-h3 text-sm">Decision Trace</h3>
                   <p className="duo-body text-[11px]">Multi-Step Rationale Chain</p>
                 </div>
               </div>
@@ -870,7 +895,7 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
           <div className="flex items-center justify-between pb-2 border-b-2 border-[rgb(var(--color-line))]">
             <div className="flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-amber-400 stroke-[2.5]" />
-              <h3 className="duo-h3 text-sm">Human-in-the-Loop Pending Queue</h3>
+              <h3 className="duo-h3 text-sm">Review Queue</h3>
             </div>
             <span className="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
               {state.pending_queue.length} PENDING REVIEW
@@ -882,20 +907,20 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
               Queue is clear. Switch to Manual Review mode in header to test human-in-the-loop signoff.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
               {state.pending_queue.map((item) => (
                 <div
                   key={item.entity_id}
                   className="p-3.5 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] flex items-center justify-between gap-3 text-xs font-mono-code"
                 >
-                  <div>
-                    <span className="font-bold text-sky-400">{item.entity_id}</span>
-                    <div className="text-[11px] text-[rgb(var(--color-muted))]">
+                  <div className="overflow-hidden">
+                    <span className="font-bold text-sky-400 truncate block max-w-[170px]" title={item.entity_id}>{item.entity_id}</span>
+                    <div className="text-[11px] text-[rgb(var(--color-muted))] truncate max-w-[200px]" title={`${item.action?.target_channel || item.trace?.recommended_channel || 'WHATSAPP_HINGLISH'} · ${formatINR(item.event?.gross_amount_paise || 250000)}`}>
                       {item.action?.target_channel || item.trace?.recommended_channel || 'WHATSAPP_HINGLISH'} · {formatINR(item.event?.gross_amount_paise || 250000)}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => onApproveAction(item.entity_id)}
                       className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase text-[10px] transition-all cursor-pointer"
@@ -920,7 +945,7 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
           <div className="flex items-center justify-between pb-2 border-b-2 border-[rgb(var(--color-line))]">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-violet-400 stroke-[2.5]" />
-              <h3 className="duo-h3 text-sm">Active Promise-to-Pay (PTP) Watchlist</h3>
+              <h3 className="duo-h3 text-sm">Active Promises</h3>
             </div>
             <span className="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
               {state.active_p2p.length} FROZEN ENTITIES
@@ -932,20 +957,20 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
               No active PTP freezes. Reply "Salary 5th ko aayegi" in WhatsApp chat or press '1' in IVR to schedule a freeze.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
               {state.active_p2p.map((ptp) => (
                 <div
                   key={ptp.entity_id}
-                  className="p-3.5 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] flex items-center justify-between text-xs font-mono-code"
+                  className="p-3.5 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] flex items-center justify-between gap-3 text-xs font-mono-code"
                 >
-                  <div>
-                    <span className="font-bold text-violet-400">{ptp.entity_id}</span>
-                    <div className="text-[11px] text-[rgb(var(--color-muted))]">
+                  <div className="overflow-hidden">
+                    <span className="font-bold text-violet-400 truncate block max-w-[170px]" title={ptp.entity_id}>{ptp.entity_id}</span>
+                    <div className="text-[11px] text-[rgb(var(--color-muted))] truncate max-w-[200px]">
                       Promised Amount: {formatINR(ptp.gross_amount_paise || 250000)}
                     </div>
                   </div>
 
-                  <span className="px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-300 font-black text-[10px] border border-violet-500/40">
+                  <span className="px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-300 font-black text-[10px] border border-violet-500/40 shrink-0 whitespace-nowrap">
                     FROZEN UNTIL PROMISE DATE
                   </span>
                 </div>
@@ -962,7 +987,7 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
             <div className="flex items-center justify-between pb-3 border-b-2 border-[rgb(var(--color-line))]">
               <div className="flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-sky-400 stroke-[2.5]" />
-                <h3 className="duo-h3 text-base">Inject Custom Payment Failure Webhook</h3>
+                <h3 className="duo-h3 text-base">Inject Webhook</h3>
               </div>
               <button
                 onClick={() => setShowCustomWebhookModal(false)}

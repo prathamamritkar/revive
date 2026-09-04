@@ -688,7 +688,7 @@ st.markdown(f"""
         <span style="font-weight:800; font-size:0.88rem; color:rgb(var(--color-emerald));">Find revenue that’s slipping away and win it back.</span>
     </div>
     <h1 style="font-size: clamp(1.6rem, 2.8vw, 2.2rem); margin: 0 0 6px 0; font-weight: 800; letter-spacing: -0.03em;">
-        Revive Autonomous Revenue Recovery Sentinel
+        Revive Revenue Recovery Engine
     </h1>
     <p style="color: rgb(var(--color-muted)); font-size: 0.88rem; margin: 0 0 14px 0; line-height: 1.45;">
         Detects revenue at risk, determines the right intervention, and executes a bounded recovery workflow across payment degradation, checkout drop-offs, failed subscriptions, and overdue receivables.
@@ -721,11 +721,11 @@ if st.session_state["action_status_msg"]:
 
 # ─── Tabs ──────────────────────────────────────────────────────────────────────
 tabs = st.tabs([
-    "RECOVERY MISSION",
-    "TELEMETRY & TOPOLOGY",
-    "POLICY ENGINE",
-    "DISPATCH SANDBOX",
-    "SHA-256 LEDGER",
+    "Overview",
+    "Benchmark",
+    "Policy",
+    "Console",
+    "Ledger",
 ])
 
 summary = orchestrator.ledger.get_summary()
@@ -1024,7 +1024,7 @@ with tabs[1]:
             {"Raw Error Signature": "USER_ABANDONED (checkout.dropped)", "Failure Classification": FailureClassification.ABANDONED_CHECKOUT.value, "Channel": ChannelType.WHATSAPP_HINGLISH.value, "Delay": "+15m"},
             {"Raw Error Signature": "PAYMENT_OVERDUE (invoice.overdue)", "Failure Classification": FailureClassification.B2B_OVERDUE_INVOICE.value, "Channel": ChannelType.WHATSAPP_HINGLISH.value, "Delay": "+1h"},
         ])
-        st.dataframe(rules_df, use_container_width=True, hide_index=True)
+        st.dataframe(rules_df, use_container_width=True, hide_index=True, height=220)
 
     st.markdown('<div class="section-header" style="margin-top:24px;"><span class="section-header-title">THE 4-LAYER REVENUE RECOVERY ENGINE TOPOLOGY</span></div>', unsafe_allow_html=True)
     t1, t2 = st.columns(2)
@@ -1106,11 +1106,11 @@ with tabs[2]:
         <div class="formula-box">
             <div>P(Success | k={k_attempts}) = <span class="formula-highlight">{p_adj:.3f}</span></div>
             <div>V (Gross Amount)             = <span class="formula-highlight">₹{gross_amount:,.2f}</span></div>
-            <div>E[Gross Recovery]            = <span class="formula-value">₹{e_gross:,.2f}</span></div>
-            <div>C_action(a_{k_attempts})                = <span class="formula-cost">₹{action_cost:.2f}</span></div>
-            <div>λ · L_fatigue(k={k_attempts})          = <span class="formula-cost">₹{L_fatigue * gross_amount:,.2f}</span></div>
+            <div>E[R<sub>gross</sub>]            = <span class="formula-value">₹{e_gross:,.2f}</span></div>
+            <div>C<sub>action</sub>(a<sub>{k_attempts}</sub>)                = <span class="formula-cost">₹{action_cost:.2f}</span></div>
+            <div>λ · L<sub>fatigue</sub>(k={k_attempts})          = <span class="formula-cost">₹{L_fatigue * gross_amount:,.2f}</span></div>
             <div style="border-top:1.5px solid rgb(var(--color-line)); margin:10px 0; padding-top:10px; font-size:0.875rem; font-weight:800;">
-                E[R_net](k={k_attempts}) = <span class="formula-value">₹{e_net:,.2f}</span>
+                E[R<sub>net</sub>](k={k_attempts}) = <span class="formula-value">₹{e_net:,.2f}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1505,6 +1505,7 @@ with tabs[4]:
             filtered[["log_id", "entity_id", "status", "attempt_count", "Initial (₹)", "Recovered (₹)", "Cost (₹)", "SHA-256 Hash"]],
             use_container_width=True,
             hide_index=True,
+            height=420,
         )
     else:
         st.markdown('<div class="section-header" style="margin-top:20px;"><span class="section-header-title">IMMUTABLE LEDGER BLOCKCHAIN EXPLORER</span></div>', unsafe_allow_html=True)
@@ -1522,9 +1523,15 @@ with tabs[4]:
 
 # ─── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div style="margin-top:32px; padding:14px 0; border-top:1.5px solid rgb(var(--color-line)); text-align:center;">
-    <span style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:rgb(var(--color-muted));">
-        © 2026 {APP_NAME} · {TRACK_NAME} · {PLATFORM_NAME}
-    </span>
+<div style="margin-top:32px; padding:16px 0; border-top:1.5px solid rgb(var(--color-line)); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:0.75rem; color:rgb(var(--color-muted));">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <strong style="color:rgb(var(--color-text)); font-weight:800;">{APP_NAME}</strong>
+        <span>· Autonomous Revenue Recovery Engine · © 2026</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px; font-family:'JetBrains Mono',monospace; font-size:0.7rem;">
+        <span style="padding:2px 8px; border-radius:4px; border:1px solid rgb(var(--color-line));">TRAI 08:00–19:00 IST</span>
+        <span style="padding:2px 8px; border-radius:4px; border:1px solid rgb(var(--color-line));">Integer-Paise Subunits</span>
+        <span style="padding:2px 8px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); background:rgba(16,185,129,0.1); color:#10b981; font-weight:700;">SHA-256 Chain</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)

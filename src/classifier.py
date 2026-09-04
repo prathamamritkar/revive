@@ -74,7 +74,7 @@ class GeminiLLMProvider(BaseLLMProvider):
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
             model = genai.GenerativeModel(model_name=model_name, system_instruction=_SYSTEM_PROMPT)
             resp = model.generate_content(text_payload)
             raw = resp.text or ""
@@ -423,8 +423,35 @@ class TelemetryClassifier:
         )
 
     def diagnose_with_ai_fallback(self, unstructured_text: str) -> SemanticDiagnosisOutput:
-        """Backward-compatible wrapper for diagnose_unstructured_agentic."""
-        return self.diagnose_unstructured_agentic(unstructured_text)
+        """Deterministic fallback for keyword reasoning and OCP custom registered providers."""
+        intent = None
+        for p in _LLM_REGISTRY.providers:
+            if not isinstance(p, (GeminiLLMProvider, OllamaLLMProvider, KeywordFallbackLLMProvider)):
+                res = p.generate(unstructured_text)
+                if res:
+                    intent = res
+                    break
+
+        if not intent:
+            kw_provider = KeywordFallbackLLMProvider()
+            intent = kw_provider.generate(unstructured_text)
+
+        if not intent:
+            intent = _LLM_REGISTRY.analyze(unstructured_text)
+
+        cls = intent.classification
+        conf = float(intent.confidence)
+        return SemanticDiagnosisOutput(
+            classification=cls,
+            confidence_score=conf,
+            inferred_intent=intent.detected_intent,
+            liquidity_status="CONSTRAINED_PAYDAY_PENDING" if cls == FailureClassification.TRANSIENT_BALANCE_LOW else "UNKNOWN",
+            recommended_tone=intent.suggested_tone or "EMPATHETIC_SALARY_CYCLE_REMINDER",
+            hinglish_context_prompt="Namaste! Samajh sakte hain salary credit ka wait hai.",
+            confidence=conf,
+            suggested_tone=intent.suggested_tone or "EMPATHETIC_SALARY_CYCLE_REMINDER",
+            detected_intent=intent.detected_intent,
+        )
 
     def diagnose(self, event: TelemetryEvent) -> FailureClassification:
         det = self.diagnose_deterministic(event)
