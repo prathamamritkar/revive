@@ -1,0 +1,8 @@
+{
+  "name": "Revive",
+  "description": "Automated payment failure recovery and mandate retention platform. Features real-time banking telemetry analysis, policy routing, conversational WhatsApp and voice outreach, and an immutable audit ledger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

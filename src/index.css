@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+@layer base {
+  :root,
+  [data-theme="Dark"],
+  .theme-dark {
+    --color-bg: 10 15 29;
+    --color-card: 18 27 48;
+    --color-surface: 26 38 66;
+    --color-inset: 14 21 38;
+    --color-line: 38 56 94;
+    --color-line-dark: 24 37 64;
+    --color-text: 248 250 252;
+    --color-muted: 156 175 204;
+    --color-cyan: 56 189 248;
+    --color-violet: 167 139 250;
+    --color-amber: 251 191 36;
+    --color-blue: 96 165 250;
+    --color-emerald: 52 211 153;
+    --color-rose: 251 113 133;
+    --color-on-accent: 8 13 24;
+  }
+
+  [data-theme="Light"],
+  .theme-light {
+    --color-bg: 244 247 252;
+    --color-card: 255 255 255;
+    --color-surface: 238 243 250;
+    --color-inset: 226 234 245;
+    --color-line: 203 216 235;
+    --color-line-dark: 168 186 214;
+    --color-text: 15 23 42;
+    --color-muted: 71 85 105;
+    --color-cyan: 2 132 199;
+    --color-violet: 124 58 237;
+    --color-amber: 217 119 6;
+    --color-blue: 29 78 216;
+    --color-emerald: 16 149 71;
+    --color-rose: 220 38 38;
+    --color-on-accent: 255 255 255;
+  }
+
+  [data-theme="High-Contrast"],
+  .theme-high-contrast {
+    --color-bg: 4 16 12;
+    --color-card: 10 34 26;
+    --color-surface: 18 56 42;
+    --color-inset: 6 24 18;
+    --color-line: 45 125 95;
+    --color-line-dark: 28 90 68;
+    --color-text: 255 255 255;
+    --color-muted: 167 243 208;
+    --color-cyan: 56 189 248;
+    --color-violet: 192 132 252;
+    --color-amber: 251 191 36;
+    --color-blue: 96 165 250;
+    --color-emerald: 16 185 129;
+    --color-rose: 244 63 94;
+    --color-on-accent: 4 16 12;
+  }
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: rgb(var(--color-bg));
+  color: rgb(var(--color-text));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Duolingo-inspired 3D Tactile Utility Classes */
+.duo-card {
+  background-color: rgb(var(--color-card));
+  border: 2px solid rgb(var(--color-line));
+  border-bottom: 4px solid rgb(var(--color-line-dark, var(--color-line)));
+  border-radius: 1.25rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.duo-well {
+  background-color: rgb(var(--color-surface));
+  border: 2px solid rgb(var(--color-line));
+  border-radius: 1rem;
+}
+
+/* Typography Hierarchy Standards */
+.duo-h1 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: rgb(var(--color-text));
+}
+
+@media (min-width: 640px) {
+  .duo-h1 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+
+.duo-h2 {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: rgb(var(--color-text));
+}
+
+.duo-h3 {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 700;
+  color: rgb(var(--color-text));
+}
+
+.duo-label {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(var(--color-muted));
+}
+
+.duo-body {
+  font-size: 0.8125rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+  color: rgb(var(--color-muted));
+}
+
+.duo-metric {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: rgb(var(--color-text));
+}
+
+@media (min-width: 640px) {
+  .duo-metric {
+    font-size: 1.75rem;
+    line-height: 2.25rem;
+  }
+}
+
+/* Custom scrollbars */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-line));
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-cyan));
+}
