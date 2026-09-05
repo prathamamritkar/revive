@@ -42,6 +42,7 @@ class AgenticDecisionTrace(BaseModel):
     auto_executed: bool
     timestamp: str
     reasoning_chain: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    decision_source: str = "DETERMINISTIC_FALLBACK"
 
 class TelemetryEvent(BaseModel):
     model_config = ConfigDict(frozen=True)

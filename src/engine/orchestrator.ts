@@ -20,6 +20,31 @@ import { SentinelDispatcher } from './dispatcher';
 import { PaymentClientWrapper } from './paymentClient';
 import { isTraiCompliantIST } from './utils';
 
+// NOTE: this file is imported by BOTH server.ts (Node) and src/App.tsx
+// (browser, via Vite). It must never import an LLM SDK directly (e.g.
+// @google/genai) — that would ship a Node-oriented dependency into the
+// browser bundle for no benefit, since a client-side call would need a
+// browser-exposed API key anyway (unsafe). The real LLM agent
+// (src/engine/agenticAgent.ts) is imported only by server.ts, which then
+// injects its decision into this orchestrator via processEventWithAgent()
+// below. This file stays fully deterministic and browser-safe.
+
+export interface RecoveryCandidate {
+  strategyName: string;
+  channel: ChannelType;
+  buildPayload: () => { delaySeconds: number; payload: Record<string, any> };
+}
+
+/** Minimal shape this file needs from an externally-resolved agent decision,
+ * kept structurally compatible with agenticAgent.ts's AgenticInterventionDecision
+ * without importing that module (see note above). */
+export interface ResolvedIntervention {
+  selectedStrategyName: string;
+  reasoning: string;
+  confidence: number;
+  decisionSource: string;
+}
+
 export class MDPYieldCalculator {
   public static computeExpectedNetYield(
     grossPaise: number,
@@ -155,7 +180,16 @@ export class ReviveOrchestrator {
     return state;
   }
 
-  public processEvent(event: TelemetryEvent): RecoveryAction | null {
+  /**
+   * Runs every stopping-invariant guard (idempotency, PTP freeze, terminal
+   * halt, max-attempts cap) and returns either a halt result (already
+   * recorded) or the continuation context needed to pick and dispatch an
+   * intervention. Shared by processEvent() and processEventWithAgent() so
+   * the two paths can never drift on what makes a case eligible to proceed.
+   */
+  private evaluateGuards(
+    event: TelemetryEvent
+  ): { halted: true; action: null } | { halted: false; state: any; classification: FailureClassification; nowEpoch: number } {
     const nowEpoch = Math.floor(Date.now() / 1000);
     const entityId = event.entity_id;
     let state = this.stateStore.get(entityId);
@@ -173,120 +207,193 @@ export class ReviveOrchestrator {
       this.stateStore.set(entityId, state);
     }
 
-    // Stopping Invariant 0: If already recovered, idempotency returns null
     if (state.status === RecoveryState.RECOVERED) {
-      return null;
+      return { halted: true, action: null };
     }
 
-    // Stopping Invariant 1: PTP Freeze
     if (state.status === RecoveryState.PROMISE_TO_PAY_PENDING) {
       if (nowEpoch < (state.ptp_epoch || 0)) {
-        return null;
+        return { halted: true, action: null };
       }
     }
 
-    // Telemetry Classification
     const classification = this.classifier.diagnose(event);
 
-    // Stopping Invariant 2: Terminal failures -> 0 touches
     if (TERMINAL_CLASSIFICATIONS.has(classification)) {
       state.status = RecoveryState.HALTED_TERMINAL;
       this.stateStore.set(entityId, state);
       this.ledger.recordEntry(
-        entityId,
-        event.gross_amount_paise,
-        0,
-        RecoveryState.HALTED_TERMINAL,
-        state.attempt_count,
-        state.total_cost_paise,
-        classification
+        entityId, event.gross_amount_paise, 0, RecoveryState.HALTED_TERMINAL,
+        state.attempt_count, state.total_cost_paise, classification
       );
-      return null;
+      return { halted: true, action: null };
     }
 
-    // Stopping Invariant 3: Max Attempts Cap (3)
     if (state.attempt_count >= MAX_RECOVERY_ATTEMPTS) {
       state.status = RecoveryState.HALTED_MAX_ATTEMPTS;
       this.stateStore.set(entityId, state);
       this.ledger.recordEntry(
-        entityId,
-        event.gross_amount_paise,
-        0,
-        RecoveryState.HALTED_MAX_ATTEMPTS,
-        state.attempt_count,
-        state.total_cost_paise,
-        "MAX_ATTEMPTS_REACHED"
+        entityId, event.gross_amount_paise, 0, RecoveryState.HALTED_MAX_ATTEMPTS,
+        state.attempt_count, state.total_cost_paise, "MAX_ATTEMPTS_REACHED"
       );
-      return null;
+      return { halted: true, action: null };
     }
 
-    // Determine target channel & strategy
-    let targetChannel = ChannelType.WHATSAPP_HINGLISH;
-    let delaySeconds = 0;
-    let payload: Record<string, any> = {};
+    return { halted: false, state, classification, nowEpoch };
+  }
+
+  /**
+   * All legal candidate interventions for this classification/attempt.
+   * Ordering matters for the deterministic (non-agentic) path, which always
+   * takes candidates[0] — that ordering is chosen to exactly reproduce the
+   * pre-existing single-choice behavior, so processEvent()'s output is
+   * unchanged for callers (App.tsx's browser fallback) that never resolve
+   * an agent decision.
+   */
+  private buildCandidates(event: TelemetryEvent, classification: FailureClassification, attemptCount: number): RecoveryCandidate[] {
+    const entityId = event.entity_id;
 
     if (classification === FailureClassification.TRANSIENT_NETWORK_DOWN) {
-      targetChannel = ChannelType.SILENT_API_RETRY;
-      const bankHealth = this.classifier.bank_cbs_health[event.issuing_bank || 'HDFC'];
-      const recoveryMins = bankHealth?.avg_recovery_mins || 45;
-      delaySeconds = recoveryMins * 60;
-      payload = {
-        message: `Silent API retry queued after ${recoveryMins}m CBS cool-down for ${event.issuing_bank || 'bank'}.`,
-        is_silent_retry: true,
-      };
-    } else if (classification === FailureClassification.ABANDONED_CHECKOUT) {
-      targetChannel = ChannelType.WHATSAPP_HINGLISH;
-      delaySeconds = 15 * 60;
-      const plink = this.paymentClient.createPaymentLink(entityId, event.gross_amount_paise, "Checkout Recovery", event.customer_phone);
-      payload = {
-        message: `Namaste! Aapka cart checkout complete nahi ho paya. Humne aapke liye 1-Click secure link reserve kiya hai:`,
-        payment_url: plink.short_url,
-      };
-    } else if (classification === FailureClassification.B2B_OVERDUE_INVOICE) {
-      targetChannel = ChannelType.WHATSAPP_HINGLISH;
-      delaySeconds = 60 * 60;
-      const va = this.paymentClient.generateVirtualAccount(entityId, event.gross_amount_paise);
-      payload = {
-        message: `Namaste. Invoice #${entityId} pending hai. Auto-reconciliation ke liye Virtual Account VPA: ${va.upi_id} ya Account: ${va.account_number} (IFSC: ${va.ifsc}) par direct RTGS/NEFT/UPI transfer karein.`,
-        payment_url: `https://rzp.io/i/va_${entityId.slice(0, 8)}`,
-        virtual_account: va,
-      };
-    } else if (classification === FailureClassification.TRANSIENT_BALANCE_LOW) {
-      targetChannel = state.attempt_count === 1 ? ChannelType.VOICE_IVR_NUDGE : ChannelType.WHATSAPP_HINGLISH;
-      delaySeconds = 24 * 3600;
-      const plink = this.paymentClient.createPaymentLink(entityId, event.gross_amount_paise, "Subscription Renewal", event.customer_phone);
-      payload = {
-        message: `Namaste! Aapka mandate payment network/balance issue ki wajah se complete nahi hua. Kripya neeche diye link se update karein:`,
-        payment_url: plink.short_url,
-      };
+      return [{
+        strategyName: 'SilentRetryStrategy',
+        channel: ChannelType.SILENT_API_RETRY,
+        buildPayload: () => {
+          const bankHealth = this.classifier.bank_cbs_health[event.issuing_bank || 'HDFC'];
+          const recoveryMins = bankHealth?.avg_recovery_mins || 45;
+          return {
+            delaySeconds: recoveryMins * 60,
+            payload: {
+              message: `Silent API retry queued after ${recoveryMins}m CBS cool-down for ${event.issuing_bank || 'bank'}.`,
+              is_silent_retry: true,
+            },
+          };
+        },
+      }];
     }
 
-    // Stopping Invariant 4: Mathematical MDP Stopping Rule
+    if (classification === FailureClassification.ABANDONED_CHECKOUT) {
+      return [{
+        strategyName: 'DefaultCheckoutStrategy',
+        channel: ChannelType.WHATSAPP_HINGLISH,
+        buildPayload: () => {
+          const plink = this.paymentClient.createPaymentLink(entityId, event.gross_amount_paise, "Checkout Recovery", event.customer_phone);
+          return {
+            delaySeconds: 15 * 60,
+            payload: {
+              message: `Namaste! Aapka cart checkout complete nahi ho paya. Humne aapke liye 1-Click secure link reserve kiya hai:`,
+              payment_url: plink.short_url,
+            },
+          };
+        },
+      }];
+    }
+
+    if (classification === FailureClassification.B2B_OVERDUE_INVOICE) {
+      const candidates: RecoveryCandidate[] = [{
+        strategyName: 'B2BInvoiceStrategy',
+        channel: ChannelType.WHATSAPP_HINGLISH,
+        buildPayload: () => {
+          const va = this.paymentClient.generateVirtualAccount(entityId, event.gross_amount_paise);
+          return {
+            delaySeconds: 60 * 60,
+            payload: {
+              message: `Namaste. Invoice #${entityId} pending hai. Auto-reconciliation ke liye Virtual Account VPA: ${va.upi_id} ya Account: ${va.account_number} (IFSC: ${va.ifsc}) par direct RTGS/NEFT/UPI transfer karein.`,
+              payment_url: `https://rzp.io/i/va_${entityId.slice(0, 8)}`,
+              virtual_account: va,
+            },
+          };
+        },
+      }];
+      if (attemptCount >= 1) {
+        // Previously ChannelType.HUMAN_ESCALATION had a cost entry
+        // (constants.ts) and a dispatch handler but no path here ever
+        // produced it — dead, same gap as the Python backend had.
+        candidates.push({
+          strategyName: 'EscalationStrategy',
+          channel: ChannelType.HUMAN_ESCALATION,
+          buildPayload: () => ({
+            delaySeconds: 30 * 60,
+            payload: {
+              message: `Escalation: Invoice #${entityId} remains overdue after automated follow-up. Routed to Finance Ops for direct commercial contact.`,
+            },
+          }),
+        });
+      }
+      return candidates;
+    }
+
+    if (classification === FailureClassification.TRANSIENT_BALANCE_LOW) {
+      const whatsappCandidate: RecoveryCandidate = {
+        strategyName: 'BalanceLowStrategy',
+        channel: ChannelType.WHATSAPP_HINGLISH,
+        buildPayload: () => {
+          const plink = this.paymentClient.createPaymentLink(entityId, event.gross_amount_paise, "Subscription Renewal", event.customer_phone);
+          return {
+            delaySeconds: 24 * 3600,
+            payload: {
+              message: `Namaste! Aapka mandate payment network/balance issue ki wajah se complete nahi hua. Kripya neeche diye link se update karein:`,
+              payment_url: plink.short_url,
+            },
+          };
+        },
+      };
+      const voiceCandidate: RecoveryCandidate = {
+        strategyName: 'VoiceIVRStrategy',
+        channel: ChannelType.VOICE_IVR_NUDGE,
+        buildPayload: () => ({
+          delaySeconds: 24 * 3600,
+          payload: {
+            message: `Namaste! Revive Automated Voice Assistant calling regarding a pending mandate payment. Press 1 to receive the payment link.`,
+          },
+        }),
+      };
+      // Prior behavior picked Voice IVR on attempt 1 else WhatsApp, as the
+      // ONLY option each time. Both are now legal candidates every time so
+      // an agent can genuinely choose; ordering preserves the old default
+      // as candidates[0] for the deterministic (non-agentic) path.
+      return attemptCount === 1 ? [voiceCandidate, whatsappCandidate] : [whatsappCandidate, voiceCandidate];
+    }
+
+    return [{
+      strategyName: 'DefaultCheckoutStrategy',
+      channel: ChannelType.WHATSAPP_HINGLISH,
+      buildPayload: () => {
+        const plink = this.paymentClient.createPaymentLink(entityId, event.gross_amount_paise, "Recovery", event.customer_phone);
+        return {
+          delaySeconds: 15 * 60,
+          payload: { message: `Recovery notification`, payment_url: plink.short_url },
+        };
+      },
+    }];
+  }
+
+  private finishDispatch(
+    event: TelemetryEvent,
+    state: any,
+    classification: FailureClassification,
+    candidate: RecoveryCandidate,
+    resolved: ResolvedIntervention | null
+  ): RecoveryAction | null {
+    const entityId = event.entity_id;
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const { delaySeconds, payload } = candidate.buildPayload();
+    const targetChannel = candidate.channel;
+
     const actionCostPaise = CHANNEL_COSTS_PAISE[targetChannel] || 60;
     const mdp = MDPYieldCalculator.computeExpectedNetYield(
-      event.gross_amount_paise,
-      state.attempt_count + 1,
-      0.72,
-      actionCostPaise,
-      0.12
+      event.gross_amount_paise, state.attempt_count + 1, 0.72, actionCostPaise, 0.12
     );
 
     if (mdp.shouldHalt) {
       state.status = RecoveryState.HALTED_MDP_STOPPING_RULE;
       this.stateStore.set(entityId, state);
       this.ledger.recordEntry(
-        entityId,
-        event.gross_amount_paise,
-        0,
-        RecoveryState.HALTED_MDP_STOPPING_RULE,
-        state.attempt_count,
-        state.total_cost_paise,
-        "HALTED_MDP_NEGATIVE_YIELD"
+        entityId, event.gross_amount_paise, 0, RecoveryState.HALTED_MDP_STOPPING_RULE,
+        state.attempt_count, state.total_cost_paise, "HALTED_MDP_NEGATIVE_YIELD"
       );
       return null;
     }
 
-    // Chronological Compliance: TRAI Gate (08:00 - 19:00 IST)
     let scheduledEpoch = nowEpoch + delaySeconds;
     let isTraiDeferred = false;
     if (this.enforceTrai && targetChannel !== ChannelType.SILENT_API_RETRY) {
@@ -307,21 +414,26 @@ export class ReviveOrchestrator {
       policy_approved: this.mode === ExecutionMode.AGENTIC_AUTONOMOUS,
     };
 
-    // Agentic Decision Trace
+    const step3 = resolved
+      ? `[${resolved.decisionSource}] ${resolved.reasoning}`
+      : `Deterministic first-candidate policy selected ${targetChannel}; agent not invoked (mode=${this.mode}).`;
+
     const trace: AgenticDecisionTrace = {
       agent_id: "agent_sentinel_v2",
       telemetry_audit: `Event ${event.event_id} parsed. Raw code: ${event.raw_error_code || "NONE"}. Gross: ₹${(event.gross_amount_paise/100).toFixed(2)}.`,
       cbs_diagnosis: `Bank: ${event.issuing_bank || "N/A"} -> ${this.classifier.bank_cbs_health[event.issuing_bank || ""]?.status || "HEALTHY"}. Failure: ${classification}.`,
       fatigue_reasoning: `Attempt ${state.attempt_count + 1}/${MAX_RECOVERY_ATTEMPTS}. MDP Expected Net: ₹${(mdp.expectedNetPaise/100).toFixed(2)}. Fatigue Penalty: ₹${(mdp.fatigueCostPaise/100).toFixed(2)}.`,
       recommended_channel: targetChannel,
-      confidence_score: 0.95,
+      confidence_score: resolved ? resolved.confidence : 0.95,
       auto_executed: this.mode === ExecutionMode.AGENTIC_AUTONOMOUS,
       timestamp: new Date().toISOString(),
+      decision_source: resolved ? resolved.decisionSource : "DETERMINISTIC_MANUAL_MODE",
       reasoning_chain: {
         step_1_telemetry: `Diagnosed ${event.event_type} with error ${event.raw_error_code || "N/A"}`,
         step_2_cbs_diagnosis: `Classification: ${classification}`,
-        step_3_mdp_yield: `Net expected yield ₹${(mdp.expectedNetPaise/100).toFixed(2)} > 0`,
-        step_4_execution_mode: this.mode === ExecutionMode.AGENTIC_AUTONOMOUS ? "Auto-dispatched" : "Queued for operator review",
+        step_3_intervention_selection: step3,
+        step_4_mdp_yield: `Net expected yield ₹${(mdp.expectedNetPaise/100).toFixed(2)} > 0`,
+        step_5_execution_mode: this.mode === ExecutionMode.AGENTIC_AUTONOMOUS ? "Auto-dispatched" : "Queued for operator review",
       }
     };
     this.decisionTraces.push(trace);
@@ -333,8 +445,48 @@ export class ReviveOrchestrator {
       return action;
     }
 
-    // AGENTIC_AUTONOMOUS: Execute immediately
     return this.executeAction(action, state, event, actionCostPaise);
+  }
+
+  public processEvent(event: TelemetryEvent): RecoveryAction | null {
+    const guard = this.evaluateGuards(event);
+    if (guard.halted) return guard.action;
+    const { state, classification } = guard;
+
+    const candidates = this.buildCandidates(event, classification, state.attempt_count);
+    // Deterministic path (used directly by the browser fallback in
+    // App.tsx, and whenever no agent resolver is supplied): always the
+    // first candidate, exactly reproducing pre-refactor behavior.
+    return this.finishDispatch(event, state, classification, candidates[0], null);
+  }
+
+  /**
+   * Node-only agentic path: identical guards and candidate computation as
+   * processEvent(), but lets a caller-supplied resolver (server.ts, using
+   * src/engine/agenticAgent.ts) choose among the candidates instead of
+   * always taking the first. Kept as a separate method — rather than making
+   * processEvent() itself async — so App.tsx's synchronous browser usage is
+   * completely unaffected.
+   */
+  public async processEventWithAgent(
+    event: TelemetryEvent,
+    resolveIntervention: (candidates: RecoveryCandidate[], classification: FailureClassification, attempt: number) => Promise<ResolvedIntervention | null>
+  ): Promise<RecoveryAction | null> {
+    const guard = this.evaluateGuards(event);
+    if (guard.halted) return guard.action;
+    const { state, classification } = guard;
+
+    const candidates = this.buildCandidates(event, classification, state.attempt_count);
+
+    let resolved: ResolvedIntervention | null = null;
+    let chosen = candidates[0];
+    if (this.mode === ExecutionMode.AGENTIC_AUTONOMOUS) {
+      resolved = await resolveIntervention(candidates, classification, state.attempt_count + 1);
+      const match = resolved ? candidates.find(c => c.strategyName === resolved!.selectedStrategyName) : undefined;
+      chosen = match || candidates[0];
+    }
+
+    return this.finishDispatch(event, state, classification, chosen, resolved);
   }
 
   private executeAction(action: RecoveryAction, state: any, event: TelemetryEvent, actionCostPaise: number): RecoveryAction {

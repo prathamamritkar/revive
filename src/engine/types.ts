@@ -45,11 +45,13 @@ export interface AgenticDecisionTrace {
   confidence_score: number;
   auto_executed: boolean;
   timestamp: string;
+  decision_source?: string;
   reasoning_chain: {
     step_1_telemetry?: string;
     step_2_cbs_diagnosis?: string;
-    step_3_mdp_yield?: string;
-    step_4_execution_mode?: string;
+    step_3_intervention_selection?: string;
+    step_4_mdp_yield?: string;
+    step_5_execution_mode?: string;
     [key: string]: any;
   };
 }

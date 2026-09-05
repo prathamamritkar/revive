@@ -19,6 +19,10 @@ from src.constants import (
     IST_OFFSET_SECONDS, SECONDS_PER_DAY,
 )
 from src.utils import paise_to_inr, resolve_phone, utc_now_iso
+from src.mandate_policy import is_mandate_execution_window, mandate_attempts_exhausted
+from src.agentic_agent import (
+    InterventionContext, CandidateOption, AgenticInterventionDecision, decide_intervention,
+)
 
 
 def _default_state() -> Dict[str, Any]:
@@ -45,6 +49,12 @@ class MDPYieldCalculator:
 # --- OCP: Recovery Strategy Extensibility ---
 
 class BaseRecoveryStrategy(ABC):
+    # Cheap, side-effect-free channel hint used to build the agent's candidate
+    # menu and score MDP yield WITHOUT calling build_action_details() (which
+    # has side effects like creating a payment link) for every option that
+    # isn't ultimately chosen. Overridden per subclass.
+    PREVIEW_CHANNEL: ChannelType = ChannelType.WHATSAPP_HINGLISH
+
     @abstractmethod
     def matches(self, classification: FailureClassification, attempt: int) -> bool:
         pass
@@ -57,6 +67,8 @@ class BaseRecoveryStrategy(ABC):
 
 
 class SilentRetryStrategy(BaseRecoveryStrategy):
+    PREVIEW_CHANNEL = ChannelType.SILENT_API_RETRY
+
     def matches(self, classification: FailureClassification, attempt: int) -> bool:
         return classification == FailureClassification.TRANSIENT_NETWORK_DOWN and attempt == 1
 
@@ -75,8 +87,14 @@ class SilentRetryStrategy(BaseRecoveryStrategy):
 
 
 class VoiceIVRStrategy(BaseRecoveryStrategy):
+    PREVIEW_CHANNEL = ChannelType.VOICE_IVR_NUDGE
+
     def matches(self, classification: FailureClassification, attempt: int) -> bool:
-        return attempt == 3
+        # Previously matched on attempt==3 alone, which meant a B2B commercial
+        # receivable at attempt 3 was routed to a casual consumer Hinglish
+        # voice nudge instead of a corporate-appropriate channel. A B2B case
+        # is handled by B2BInvoiceStrategy / EscalationStrategy instead.
+        return attempt == 3 and classification != FailureClassification.B2B_OVERDUE_INVOICE
 
     def build_action_details(
         self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
@@ -94,6 +112,8 @@ class VoiceIVRStrategy(BaseRecoveryStrategy):
 
 
 class BalanceLowStrategy(BaseRecoveryStrategy):
+    PREVIEW_CHANNEL = ChannelType.WHATSAPP_HINGLISH
+
     def matches(self, classification: FailureClassification, attempt: int) -> bool:
         return classification == FailureClassification.TRANSIENT_BALANCE_LOW
 
@@ -113,6 +133,8 @@ class BalanceLowStrategy(BaseRecoveryStrategy):
 
 
 class B2BInvoiceStrategy(BaseRecoveryStrategy):
+    PREVIEW_CHANNEL = ChannelType.WHATSAPP_HINGLISH
+
     def matches(self, classification: FailureClassification, attempt: int) -> bool:
         return classification == FailureClassification.B2B_OVERDUE_INVOICE
 
@@ -131,7 +153,40 @@ class B2BInvoiceStrategy(BaseRecoveryStrategy):
         return scheduled_time, channel, payload, reason
 
 
+class EscalationStrategy(BaseRecoveryStrategy):
+    """Routes an unresolved B2B receivable to a human Finance Ops queue.
+
+    Previously ChannelType.HUMAN_ESCALATION had a cost entry (constants.py),
+    a dispatch handler (dispatcher.HumanEscalationChannelHandler), and was
+    referenced in cost accounting (orchestrator.execute_mock_batch) — but no
+    strategy's matches() ever produced it, so it was dead: "compliant
+    escalation" existed as plumbing, not as a reachable decision. This
+    strategy makes it reachable as a legal candidate once automated B2B
+    follow-up has already been tried once.
+    """
+    PREVIEW_CHANNEL = ChannelType.HUMAN_ESCALATION
+
+    def matches(self, classification: FailureClassification, attempt: int) -> bool:
+        return classification == FailureClassification.B2B_OVERDUE_INVOICE and attempt >= 2
+
+    def build_action_details(
+        self, event: TelemetryEvent, entity_id: str, amount_inr: float, now: int, rzp_client: PaymentClientWrapper
+    ) -> Tuple[int, ChannelType, Dict[str, Any], str]:
+        scheduled_time = now + 1800
+        channel = ChannelType.HUMAN_ESCALATION
+        payload = {
+            "message": (
+                f"Escalation: Invoice #{entity_id} (Rs. {amount_inr:,.2f}) remains overdue "
+                f"after automated follow-up. Routed to Finance Ops for direct commercial contact."
+            ),
+        }
+        reason = "B2B receivable unresolved after automated follow-up; escalated to human Finance Ops."
+        return scheduled_time, channel, payload, reason
+
+
 class DefaultCheckoutStrategy(BaseRecoveryStrategy):
+    PREVIEW_CHANNEL = ChannelType.WHATSAPP_HINGLISH
+
     def matches(self, classification: FailureClassification, attempt: int) -> bool:
         return True
 
@@ -157,6 +212,7 @@ class RecoveryStrategyRegistry:
             VoiceIVRStrategy(),
             BalanceLowStrategy(),
             B2BInvoiceStrategy(),
+            EscalationStrategy(),
             DefaultCheckoutStrategy(),
         ]
 
@@ -168,10 +224,22 @@ class RecoveryStrategyRegistry:
             self.strategies.insert(len(self.strategies) - 1, strategy)
 
     def find_strategy(self, classification: FailureClassification, attempt: int) -> BaseRecoveryStrategy:
+        """First-match deterministic policy. Used directly in MANUAL_POLICY_GATED
+        mode and in replay_event(), where reproducibility matters more than
+        contextual judgment. In AGENTIC_AUTONOMOUS mode, process_event() uses
+        find_candidates() instead and lets the agent choose among them."""
         for s in self.strategies:
             if s.matches(classification, attempt):
                 return s
         return DefaultCheckoutStrategy()
+
+    def find_candidates(self, classification: FailureClassification, attempt: int) -> List[BaseRecoveryStrategy]:
+        """All legal candidates for this classification/attempt, not just the
+        first match. This is the bounded action set an agentic decision may
+        choose from — it can reason among these, but cannot select anything
+        outside this deterministically-computed list."""
+        matched = [s for s in self.strategies if s.matches(classification, attempt)]
+        return matched if matched else [DefaultCheckoutStrategy()]
 
 
 class PromiseToPayEngine:
@@ -277,16 +345,34 @@ class ReviveOrchestrator:
         classification: FailureClassification,
         channel: ChannelType,
         attempt: int,
+        agent_decision: Optional[AgenticInterventionDecision] = None,
     ) -> AgenticDecisionTrace:
         bank_status = self.classifier.bank_cbs_health.get(event.issuing_bank or "", {}).get("status", "HEALTHY")
         auto_exec = self.mode == ExecutionMode.AGENTIC_AUTONOMOUS
         amount_inr = paise_to_inr(event.gross_amount_paise)
         prob, exp_rec, tot_cost, net_yield = MDPYieldCalculator.calculate_yield(event.gross_amount_paise, attempt, channel)
+
+        if agent_decision is not None:
+            # Real decision-process record: this is the agent's own rationale
+            # for choosing `channel` among the legal candidate set, not a
+            # templated description written after the fact.
+            step_3 = f"[{agent_decision.decision_source}] {agent_decision.reasoning}"
+            decision_source = agent_decision.decision_source
+            confidence = agent_decision.confidence
+        else:
+            # MANUAL_POLICY_GATED mode: the deterministic first-match policy
+            # picked the channel and no agent was consulted (by design —
+            # operator sign-off gates every dispatch in this mode).
+            step_3 = f"Deterministic first-match policy selected {channel.value}; agent not invoked (mode={self.mode.value})."
+            decision_source = "DETERMINISTIC_MANUAL_MODE"
+            confidence = round(max(0.70, 0.98 - (attempt - 1) * 0.10), 2)
+
         reasoning = {
             "step_1_telemetry": f"Evaluated event {event.event_id} ({event.event_type}) for entity {event.entity_id}. Amount: INR {amount_inr:,.2f}.",
             "step_2_cbs_diagnosis": f"Bank {event.issuing_bank or 'UNKNOWN'} CBS status: {bank_status}. Error code '{event.raw_error_code}' -> {classification.value}.",
-            "step_3_mdp_yield": f"Attempt {attempt}/{self.MAX_ATTEMPTS}: P(success)={prob:.2f}, E[Net]=INR {net_yield/100:,.2f}.",
-            "step_4_execution_mode": f"Mode={self.mode.value}. Auto-executed={auto_exec}.",
+            "step_3_intervention_selection": step_3,
+            "step_4_mdp_yield": f"Attempt {attempt}/{self.MAX_ATTEMPTS}: P(success)={prob:.2f}, E[Net]=INR {net_yield/100:,.2f}.",
+            "step_5_execution_mode": f"Mode={self.mode.value}. Auto-executed={auto_exec}.",
         }
         return AgenticDecisionTrace(
             agent_id="Revive-Agent-01",
@@ -294,10 +380,11 @@ class ReviveOrchestrator:
             cbs_diagnosis=f"Bank {event.issuing_bank or 'UNKNOWN'} status: {bank_status}. Classified error code '{event.raw_error_code}' as {classification.value}.",
             fatigue_reasoning=f"Attempt {attempt}/{self.MAX_ATTEMPTS}. MDP yield: P(success)={prob:.2f}, E[Rec]=INR {exp_rec/100:,.2f}, Cost=INR {tot_cost/100:,.2f}, E[Net]=INR {net_yield/100:,.2f}. Selected channel {channel.value}.",
             recommended_channel=channel,
-            confidence_score=round(max(0.70, 0.98 - (attempt - 1) * 0.10), 2),
+            confidence_score=confidence,
             auto_executed=auto_exec,
             timestamp=utc_now_iso(),
             reasoning_chain=reasoning,
+            decision_source=decision_source,
         )
 
     def is_trai_compliant_time(self, epoch_time: int) -> bool:
@@ -432,7 +519,49 @@ class ReviveOrchestrator:
         attempt = current_state["attempts"] + 1
         amount_inr = paise_to_inr(event.gross_amount_paise)
 
-        strategy = self.strategy_registry.find_strategy(classification, attempt)
+        candidates = self.strategy_registry.find_candidates(classification, attempt)
+        agent_decision: Optional[AgenticInterventionDecision] = None
+
+        if self.mode == ExecutionMode.AGENTIC_AUTONOMOUS:
+            mandate_ctx = None
+            if classification in (FailureClassification.TRANSIENT_NETWORK_DOWN, FailureClassification.TRANSIENT_BALANCE_LOW):
+                mandate_ctx = {
+                    "npci_attempts_exhausted": mandate_attempts_exhausted(attempt),
+                    "in_npci_execution_window": is_mandate_execution_window(now),
+                }
+            candidate_previews = []
+            for s in candidates:
+                prob, _exp_rec, tot_cost, net_yield = MDPYieldCalculator.calculate_yield(
+                    event.gross_amount_paise, attempt, s.PREVIEW_CHANNEL
+                )
+                candidate_previews.append(CandidateOption(
+                    strategy_name=type(s).__name__,
+                    channel=s.PREVIEW_CHANNEL,
+                    expected_net_yield_paise=net_yield,
+                    success_probability=prob,
+                    channel_cost_paise=tot_cost,
+                ))
+            agent_decision = decide_intervention(InterventionContext(
+                entity_id=entity_id,
+                classification=classification,
+                attempt=attempt,
+                amount_inr=amount_inr,
+                issuing_bank=event.issuing_bank,
+                candidates=candidate_previews,
+                mandate_context=mandate_ctx,
+                ptp_status=self.inspect_ptp_status(entity_id, now) if entity_id in self.ptp_engine.promises else None,
+                customer_note=event.raw_error_code,
+            ))
+            strategy = next(
+                (s for s in candidates if type(s).__name__ == agent_decision.selected_strategy_name),
+                candidates[0],
+            ) if agent_decision else candidates[0]
+        else:
+            # MANUAL_POLICY_GATED: operator reviews every dispatch before it
+            # fires, so the deterministic first-candidate default is used
+            # here rather than an autonomous LLM decision.
+            strategy = candidates[0]
+
         scheduled_time, channel, payload, reason = strategy.build_action_details(
             event, entity_id, amount_inr, now, self.rzp_client
         )
@@ -450,7 +579,7 @@ class ReviveOrchestrator:
             scheduled_time += TRAI_DEFER_SECONDS
             payload["is_trai_deferred"] = True
 
-        trace = self.generate_agentic_trace(event, classification, channel, attempt)
+        trace = self.generate_agentic_trace(event, classification, channel, attempt, agent_decision)
         action = RecoveryAction(
             action_id=f"act_{entity_id}_{attempt}",
             entity_id=entity_id,
@@ -593,7 +722,16 @@ class ReviveOrchestrator:
         attempt: int = 1,
         current_epoch: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Reproduces policy evaluation deterministically from stored facts."""
+        """Reproduces policy evaluation deterministically from stored facts.
+
+        Intentionally uses find_strategy() (first-match) rather than the
+        agentic decide_intervention() path used in process_event(): an audit
+        replay must return the same result every time it's run, and an LLM
+        call is not guaranteed to be reproducible. Live dispatch reasoning
+        lives in the ledger's decision_source/reasoning_chain fields already
+        recorded at dispatch time; replay reconstructs the deterministic
+        policy skeleton around it, not the original LLM call itself.
+        """
         now = current_epoch or int(time.time())
         ai_eval = self.classifier.diagnose_with_ai(event)
         classification = ai_eval.classification

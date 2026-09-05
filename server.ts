@@ -4,10 +4,70 @@ import path from "path";
 import crypto from "crypto";
 import { spawn } from "child_process";
 import { createServer as createViteServer } from "vite";
-import { ReviveOrchestrator } from "./src/engine/orchestrator";
+import { ReviveOrchestrator, MDPYieldCalculator, RecoveryCandidate, ResolvedIntervention } from "./src/engine/orchestrator";
 import { SYNTHETIC_BATCH_50 } from "./src/data/syntheticBatch";
 import { generateTwimlVoiceRecovery } from "./src/engine/dispatcher";
-import { ExecutionMode, TelemetryEvent } from "./src/engine/types";
+import { ExecutionMode, TelemetryEvent, FailureClassification } from "./src/engine/types";
+import { CHANNEL_COSTS_PAISE } from "./src/engine/constants";
+import { decideIntervention, CandidateOption } from "./src/engine/agenticAgent";
+import { isMandateExecutionWindow, mandateAttemptsExhausted } from "./src/engine/mandatePolicy";
+
+/**
+ * Bridges the deterministic candidate menu (orchestrator.buildCandidates,
+ * surfaced via processEventWithAgent) to the real LLM agent. This function
+ * lives in server.ts — a Node process — specifically so the API key it
+ * relies on (via agenticAgent.ts's use of @google/genai) never has to be
+ * reachable from browser code; src/engine/orchestrator.ts itself stays free
+ * of any LLM SDK import since App.tsx also bundles that file client-side.
+ */
+async function resolveInterventionForEvent(
+  candidates: RecoveryCandidate[],
+  classification: FailureClassification,
+  attempt: number,
+  event: TelemetryEvent
+): Promise<ResolvedIntervention | null> {
+  const candidateOptions: CandidateOption[] = candidates.map((c) => {
+    const costPaise = CHANNEL_COSTS_PAISE[c.channel] || 60;
+    const mdp = MDPYieldCalculator.computeExpectedNetYield(event.gross_amount_paise, attempt, 0.72, costPaise, 0.12);
+    return {
+      strategyName: c.strategyName,
+      channel: c.channel,
+      expectedNetYieldPaise: mdp.expectedNetPaise,
+      successProbability: mdp.adjustedProbability,
+      channelCostPaise: costPaise,
+    };
+  });
+
+  let mandateContext = null;
+  if (
+    classification === FailureClassification.TRANSIENT_NETWORK_DOWN ||
+    classification === FailureClassification.TRANSIENT_BALANCE_LOW
+  ) {
+    mandateContext = {
+      npciAttemptsExhausted: mandateAttemptsExhausted(attempt),
+      inNpciExecutionWindow: isMandateExecutionWindow(Math.floor(Date.now() / 1000)),
+    };
+  }
+
+  const decision = await decideIntervention({
+    entityId: event.entity_id,
+    classification,
+    attempt,
+    amountInr: event.gross_amount_paise / 100,
+    issuingBank: event.issuing_bank,
+    candidates: candidateOptions,
+    mandateContext,
+    customerNote: event.raw_error_code,
+  });
+
+  if (!decision) return null;
+  return {
+    selectedStrategyName: decision.selectedStrategyName,
+    reasoning: decision.reasoning,
+    confidence: decision.confidence,
+    decisionSource: decision.decisionSource,
+  };
+}
 
 // FastAPI backend connection state & detection
 let activeFastApiUrl: string | null = null;
@@ -213,7 +273,9 @@ async function startServer() {
     });
 
     // Also process in local orchestrator to keep client synchronized
-    const localAction = orchestrator.processEvent(event);
+    const localAction = await orchestrator.processEventWithAgent(event, (candidates, classification, attempt) =>
+      resolveInterventionForEvent(candidates, classification, attempt, event)
+    );
 
     if (fastApiCall.ok) {
       return res.json({
@@ -527,7 +589,9 @@ async function startServer() {
       body: rawBody,
     });
 
-    const localAction = orchestrator.processEvent(event);
+    const localAction = await orchestrator.processEventWithAgent(event, (candidates, classification, attempt) =>
+      resolveInterventionForEvent(candidates, classification, attempt, event)
+    );
 
     res.json({
       status: "webhook_accepted",
