@@ -2,7 +2,7 @@
 
 > **Deterministic, Policy-Gated Capital Recovery Engine for Enterprise Payment Platforms**
 
-[![Architecture](https://img.shields.io/badge/Architecture-4--Layer%20DDD-0A84FF?style=flat-square)](./TECHNICAL.md) [![Verification](https://img.shields.io/badge/Verification-8--Stage%20Pass-30D158?style=flat-square)](./test_suite.py) [![Compliance](https://img.shields.io/badge/Compliance-TRAI%20IST-FF9F0A?style=flat-square)](./AGENTS.md) [![Auditability](https://img.shields.io/badge/Ledger-SHA--256-BF5AF2?style=flat-square)](./src/ledger.py)
+[![Architecture](https://img.shields.io/badge/Architecture-4--Layer%20DDD-0A84FF?style=flat-square)](./TECHNICAL.md) [![Verification](https://img.shields.io/badge/Verification-9--Stage%20Pass-30D158?style=flat-square)](./test_suite.py) [![Compliance](https://img.shields.io/badge/Compliance-TRAI%20IST-FF9F0A?style=flat-square)](./AGENTS.md) [![Auditability](https://img.shields.io/badge/Ledger-SHA--256-BF5AF2?style=flat-square)](./src/ledger.py)
 
 ---
 
@@ -201,7 +201,7 @@ Where:
 3. **Terminal Prohibition**: Immediate 0-touch halt on `TERMINAL_ACCOUNT_CLOSED` and `TERMINAL_AUTH_REJECTED`.
 4. **TRAI Chrono-Gate Bounds**: Customer outreach is restricted to **08:00–19:00 IST**. Non-compliant schedules are deferred by `+12h` (`is_trai_deferred: True`).
 5. **Promise-to-Pay (PTP) Lock**: Active PTP commitments freeze outreach until `promised_timestamp_epoch`.
-6. **Dual Operational Modes**: Supports **Agentic Autonomous Mode** (`ExecutionMode.AGENTIC_AUTONOMOUS` with `policy_approved=True`) and **Manual Policy-Gated Mode** (`ExecutionMode.MANUAL_POLICY_GATED` requiring operator signoff).
+6. **Dual Operational Modes**: In `ExecutionMode.AGENTIC_AUTONOMOUS`, intervention selection is made by an LLM agent ([src/agentic_agent.py](./src/agentic_agent.py)) reasoning over a deterministically pre-computed, policy-legal candidate set — it cannot select outside that set, and falls back to a deterministic first-candidate policy if no LLM provider is available or its response fails validation. `ExecutionMode.MANUAL_POLICY_GATED` skips the agent entirely and uses the deterministic policy directly, pending operator signoff. What stays deterministic in both modes, by design: the TRAI Chrono-Gate, the PTP lock, the MDP stopping rule, the terminal-failure halt, and the mandate execution-attempt ceiling ([src/mandate_policy.py](./src/mandate_policy.py)) — these are regulatory/mathematical bounds, not judgment calls, so they are never put under LLM control.
 
 ---
 
@@ -234,7 +234,7 @@ $$
 ├── run_demo.py                 # Master Application Launcher & Public HTTPS Tunnel
 ├── run.bat                     # Executable Windows Batch Launcher
 ├── run.ps1                     # Executable PowerShell Launcher
-├── test_suite.py               # 8-Stage Automated Verification Suite
+├── test_suite.py               # 9-Stage Automated Verification Suite
 ├── requirements.txt            # Package Dependency Specification
 ├── data/
 │   └── synthetic_batch_50.json # 50-Record Evaluation Benchmark Dataset
@@ -245,6 +245,8 @@ $$
     ├── schemas.py              # Strict Pydantic Data Contracts (Paise Validation)
     ├── classifier.py           # Diagnostic Rule Tree & LLM Intent Classifier
     ├── orchestrator.py         # Policy Orchestrator, TRAI Gate & MDP Calculator
+    ├── agentic_agent.py        # LLM Intervention-Selection Agent (bounded, validated, fail-safe)
+    ├── mandate_policy.py       # NPCI AutoPay Mandate Execution & Retry Sequencer
     ├── payment_client.py       # Gateway REST API Wrapper & Webhook Signature Verifier
     ├── rzp_client.py           # Native SDK Integration Client
     ├── dispatcher.py           # WhatsApp & Twilio Voice IVR Speech Dispatcher
@@ -259,10 +261,12 @@ $$
 - **[app.py](./app.py)**: Webhook ingestion (`/webhook/payment`), HMAC validation, REST API routes.
 - **[dashboard.py](./dashboard.py)**: Streamlit visual analytics, approval queues, interactive scenario launcher.
 - **[run_demo.py](./run_demo.py)**: Multi-process orchestration launching FastAPI, Streamlit, and pyngrok tunnels.
-- **[test_suite.py](./test_suite.py)**: 8-stage automated test runner verifying system contracts.
+- **[test_suite.py](./test_suite.py)**: 9-stage automated test runner verifying system contracts.
 - **[src/schemas.py](./src/schemas.py)**: Pydantic domain models with strict Paise integer validation.
 - **[src/classifier.py](./src/classifier.py)**: Core diagnostic heuristics and LLM intent extraction.
 - **[src/orchestrator.py](./src/orchestrator.py)**: State transition logic, TRAI time gates, and MDP stopping calculator.
+- **[src/agentic_agent.py](./src/agentic_agent.py)**: LLM intervention-selection agent — chooses among a deterministically bounded candidate set, validated against that set, with a deterministic fallback when no LLM is available or its output is invalid.
+- **[src/mandate_policy.py](./src/mandate_policy.py)**: NPCI AutoPay mandate execution-attempt ceiling and non-peak execution windows (distinct from the TRAI customer-contact gate).
 - **[src/payment_client.py](./src/payment_client.py)**: Payment link generation and Virtual Account allocation.
 - **[src/dispatcher.py](./src/dispatcher.py)**: Multichannel dispatch handler (WhatsApp Hinglish & Twilio TwiML Voice).
 - **[src/ledger.py](./src/ledger.py)**: Immutable SHA-256 state-transition ledger implementation.
@@ -321,7 +325,7 @@ python run_demo.py
 
 ### 3. Automated Test Suite Execution
 
-Run the complete 8-stage automated verification suite:
+Run the complete 9-stage automated verification suite:
 
 ```powershell
 python test_suite.py

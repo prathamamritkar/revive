@@ -12,6 +12,11 @@ venv/
 env/
 ENV/
 
+# Node
+node_modules/
+dist/
+build/
+
 # IDE & Editor settings
 .idea/
 .vscode/
@@ -26,6 +31,7 @@ commit_changes.ps1
 _validate.py
 scratch/
 sample/
+files/
 
 # OS metadata
 .DS_Store
