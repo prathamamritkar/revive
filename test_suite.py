@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 from typing import Optional
 from datetime import datetime, timezone
 from src.schemas import TelemetryEvent, FailureClassification, ChannelType, RecoveryState, DispatchRequest
@@ -20,7 +21,7 @@ def run_all_tests():
     from src.dispatcher import WhatsAppDispatcher, SentinelDispatcher
 
     # 1. Test Classifier & Hybrid AI Intent
-    print("\n[1/8] Testing Telemetry Classifier & Hybrid AI Intent...")
+    print("\n[1/9] Testing Telemetry Classifier & Hybrid AI Intent...")
     classifier = TelemetryClassifier()
     
     def _make_event(evt_id: str, ent_id: str, bank: str, err: str, amount: int = 150000) -> TelemetryEvent:
@@ -69,7 +70,7 @@ def run_all_tests():
 
 
     # 2. Test Orchestrator & Stopping Invariants
-    print("\n[2/8] Testing Orchestration, Policy Gates & Stopping Rules...")
+    print("\n[2/9] Testing Orchestration, Policy Gates & Stopping Rules...")
     orchestrator = ReviveOrchestrator(classifier=classifier)
     
     # Process terminal - should halt immediately
@@ -93,7 +94,7 @@ def run_all_tests():
     print("  [PASS] Agentic auto-dispatch & Manual operator approval queue validated.")
 
     # 3. Test Payment Client Link & Virtual Account Generation
-    print("\n[3/8] Testing 1-Click Payment Link & Virtual Account Generation...")
+    print("\n[3/9] Testing 1-Click Payment Link & Virtual Account Generation...")
     rzp = PaymentClientWrapper()
     plink = rzp.create_payment_link("pay_123", 149900, "Cart Checkout Recovery")
     assert plink["short_url"].startswith("http"), "Payment link short_url missing"
@@ -104,7 +105,7 @@ def run_all_tests():
     print(f"  [PASS] Virtual Account generated: {va['upi_id']}")
 
     # 4. Test WhatsApp Hinglish Dispatcher
-    print("\n[4/8] Testing Hinglish WhatsApp Dispatcher...")
+    print("\n[4/9] Testing Hinglish WhatsApp Dispatcher...")
     dispatcher = WhatsAppDispatcher()
     disp_res = dispatcher.dispatch(DispatchRequest(
         phone_number="+919876543210",
@@ -116,7 +117,7 @@ def run_all_tests():
     print("  [PASS] Hinglish WhatsApp message dispatched successfully.")
 
     # 5. Test Voice IVR & Promise-to-Pay (PTP) Commitment Lifecycle
-    print("\n[5/8] Testing Hinglish Voice IVR & Promise-to-Pay (PTP) Freeze...")
+    print("\n[5/9] Testing Hinglish Voice IVR & Promise-to-Pay (PTP) Freeze...")
     voice_res = dispatcher.dispatch(DispatchRequest(
         phone_number="+919876543210",
         message="Namaste! Revive Automated Voice Assistant calling regarding pending payment.",
@@ -134,7 +135,7 @@ def run_all_tests():
     print("  [PASS] Promise-to-Pay (PTP) commitment froze retry sequence successfully.")
 
     # 6. Test SHA-256 Cryptographic Ledger & 50-Record Batch
-    print("\n[6/8] Testing SHA-256 Ledger Integrity & 50-Record Evaluation Batch...")
+    print("\n[6/9] Testing SHA-256 Ledger Integrity & 50-Record Evaluation Batch...")
     with open("data/synthetic_batch_50.json") as f:
         batch_data = json.load(f)
     events = [TelemetryEvent(**d) for d in batch_data]
@@ -154,7 +155,7 @@ def run_all_tests():
     assert summary["recovered_count"] > 0, "No records recovered!"
 
     # 7. Test FastAPI REST Endpoints End-to-End
-    print("\n[7/8] Testing FastAPI REST Endpoints End-to-End...")
+    print("\n[7/9] Testing FastAPI REST Endpoints End-to-End...")
     from fastapi.testclient import TestClient
     from app import app
     client = TestClient(app)
@@ -167,7 +168,7 @@ def run_all_tests():
     print("  [PASS] REST API endpoints (/health, /voice/twiml, /ledger) verified.")
 
     # 8. Test OCP Extensibility & Dynamic Plugin Registries
-    print("\n[8/8] Testing OCP Extensibility & Plugin Registries...")
+    print("\n[8/9] Testing OCP Extensibility & Plugin Registries...")
     from src.classifier import BaseLLMProvider, BaseDiagnosticRule, register_llm_provider, AIIntentResponse
     from src.orchestrator import BaseRecoveryStrategy
     from src.dispatcher import BaseChannelHandler
@@ -319,6 +320,65 @@ def run_all_tests():
     assert r_replay_api.status_code == 200 and r_replay_api.json()["reproduced"] is True
 
     print("  [PASS] Fail-Safe Defaults, Defense in Depth, Immutability, Idempotency, CQS, HITL, MDP, Evidence-Bound, Explainability, Auditability, 12-Factor, Graceful Degradation, Chronological Compliance, Poka-Yoke, SSOT, Context Map & Reproducibility verified.")
+
+    # 9. Testing Autonomous Intervention Agent — bounded action set & routing fixes
+    print("\n[9/9] Testing Autonomous Intervention Agent...")
+    from src.agentic_agent import InterventionContext, CandidateOption, decide_intervention
+    from src.mandate_policy import mandate_attempts_exhausted, is_mandate_execution_window, MANDATE_MAX_EXECUTION_ATTEMPTS
+
+    # 9a. Bounded safety property: with no LLM key configured, the agent must
+    # still return a decision, and that decision must be one of the supplied
+    # candidates — never a hallucinated / out-of-menu action.
+    candidates = [
+        CandidateOption(strategy_name="B2BInvoiceStrategy", channel=ChannelType.WHATSAPP_HINGLISH,
+                         expected_net_yield_paise=5000, success_probability=0.5, channel_cost_paise=60),
+        CandidateOption(strategy_name="EscalationStrategy", channel=ChannelType.HUMAN_ESCALATION,
+                         expected_net_yield_paise=3000, success_probability=0.5, channel_cost_paise=500),
+    ]
+    decision = decide_intervention(InterventionContext(
+        entity_id="inv_test_01", classification=FailureClassification.B2B_OVERDUE_INVOICE,
+        attempt=2, amount_inr=1000.0, candidates=candidates,
+    ))
+    assert decision is not None
+    assert decision.selected_strategy_name in {c.strategy_name for c in candidates}, \
+        "Agent selected an action outside the legal candidate set!"
+    print("  [PASS] Bounded action set: agent decision always within pre-approved candidates.")
+
+    # 9b. Routing fix: B2B at attempt 3 must no longer be routed to the
+    # consumer VoiceIVRStrategy (it used to match on attempt==3 alone).
+    b2b_candidates_attempt3 = orch_batch.strategy_registry.find_candidates(
+        FailureClassification.B2B_OVERDUE_INVOICE, 3
+    )
+    b2b_candidate_names = {type(s).__name__ for s in b2b_candidates_attempt3}
+    assert "VoiceIVRStrategy" not in b2b_candidate_names, "B2B receivable must not be offered a consumer voice nudge!"
+    assert "EscalationStrategy" in b2b_candidate_names, "Human escalation must be a legal candidate for stalled B2B receivables!"
+    print("  [PASS] B2B attempt-3 misroute fixed: VoiceIVRStrategy excluded, EscalationStrategy reachable.")
+
+    # 9c. HUMAN_ESCALATION channel is now actually reachable end-to-end (was
+    # previously dead: cost/dispatch plumbing existed, no strategy ever chose it).
+    esc_strategy = next(s for s in b2b_candidates_attempt3 if type(s).__name__ == "EscalationStrategy")
+    _sched, esc_channel, _payload, _reason = esc_strategy.build_action_details(
+        evt_hdfc, "inv_test_02", 1000.0, int(time.time()), rzp
+    )
+    assert esc_channel == ChannelType.HUMAN_ESCALATION
+    print("  [PASS] ChannelType.HUMAN_ESCALATION is reachable from the strategy registry.")
+
+    # 9d. Mandate execution policy grounded in NPCI's Aug-2025 AutoPay rules:
+    # 1 original + 3 retries = 4 total attempts; a 5th is exhausted.
+    assert MANDATE_MAX_EXECUTION_ATTEMPTS == 4
+    assert mandate_attempts_exhausted(4) is True
+    assert mandate_attempts_exhausted(3) is False
+    assert isinstance(is_mandate_execution_window(int(time.time())), bool)
+    print("  [PASS] Mandate retry sequencer matches NPCI AutoPay execution-attempt ceiling (4 total attempts).")
+
+    # 9e. Full pipeline: process_event in AGENTIC_AUTONOMOUS mode attaches a
+    # real decision_source to the audit trace (not the old always-templated string).
+    orch_live = ReviveOrchestrator()
+    orch_live.set_execution_mode(ExecutionMode.AGENTIC_AUTONOMOUS)
+    live_action = orch_live.process_event(evt_hdfc)
+    live_trace = orch_live.state_store[evt_hdfc.entity_id]["last_trace"]
+    assert live_trace["decision_source"] in ("LLM_AGENT_GEMINI", "LLM_AGENT_OLLAMA", "DETERMINISTIC_FALLBACK")
+    print(f"  [PASS] Live decision trace records decision_source='{live_trace['decision_source']}' (real, not templated).")
 
     print("\n" + "=" * 80)
     print(" ALL REVIVE ARCHITECTURAL & ENTERPRISE PRINCIPLES PASSED FLAWLESSLY")
