@@ -33,7 +33,15 @@ _SYSTEM_PROMPT = (
 
 def _parse_llm_json(raw: str, text_payload: str) -> Optional[AIIntentResponse]:
     try:
-        data = json.loads(raw.strip())
+        cleaned = raw.strip()
+        if "```" in cleaned:
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+        first_brace = cleaned.find("{")
+        last_brace = cleaned.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            cleaned = cleaned[first_brace:last_brace + 1]
+        data = json.loads(cleaned)
         cls_val = data.get("classification", "")
         if cls_val not in _VALID_CLASSIFICATIONS:
             raise ValueError(f"Unknown classification: {cls_val}")

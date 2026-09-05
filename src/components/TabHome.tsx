@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -19,6 +19,8 @@ import {
   RefreshCw,
   Repeat,
   FileCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { ExecutionMode } from '../engine/types';
 import { EngineState } from '../types';
@@ -47,6 +49,13 @@ export const TabHome: React.FC<TabHomeProps> = ({
 
   const isAutonomous = mode === ExecutionMode.AGENTIC_AUTONOMOUS;
   const bankList = ['HDFC', 'SBIN', 'ICIC', 'UTIB', 'KKBK'];
+  const homeBankScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollHomeBanks = (direction: 'left' | 'right') => {
+    if (homeBankScrollRef.current) {
+      homeBankScrollRef.current.scrollBy({ left: direction === 'left' ? -220 : 220, behavior: 'smooth' });
+    }
+  };
 
   // Current IST time check for TRAI window
   const nowEpoch = Math.floor(Date.now() / 1000);
@@ -55,117 +64,11 @@ export const TabHome: React.FC<TabHomeProps> = ({
 
   return (
     <div className="space-y-6 pb-8">
-      {/* 1. Operations Header & Live Engine Status */}
-      <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-md">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[rgb(var(--color-line))]">
-          <div className="space-y-1">
-            <h1 className="duo-h1 text-2xl sm:text-3xl text-[rgb(var(--color-text))] flex items-center gap-3">
-              <span>Overview</span>
-            </h1>
-            <p className="duo-body text-xs sm:text-sm">
-              Real-time failure telemetry, gateway health, automated dispatches, and review queue.
-            </p>
-          </div>
-
-          {/* Direct Engine Status Controls */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Mode Toggle Button */}
-            <button
-              onClick={() => onToggleMode(isAutonomous ? ExecutionMode.MANUAL_POLICY_GATED : ExecutionMode.AGENTIC_AUTONOMOUS)}
-              className={`px-3.5 py-2 rounded-2xl text-xs font-black uppercase font-mono-code transition-all border-2 border-b-4 flex items-center gap-2 cursor-pointer ${
-                isAutonomous
-                  ? 'bg-emerald-500/15 border-emerald-500/50 border-b-emerald-600 text-emerald-400 hover:bg-emerald-500/25'
-                  : 'bg-amber-500/15 border-amber-500/50 border-b-amber-600 text-amber-400 hover:bg-amber-500/25'
-              }`}
-              title="Click to toggle between Autonomous execution and Manual operator review"
-            >
-              {isAutonomous ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <Bot className="w-3.5 h-3.5" />
-                  <span>Autonomous Mode</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Manual Review Queue</span>
-                </>
-              )}
-            </button>
-
-            {/* TRAI Regulatory Gate Status */}
-            {onToggleTrai && (
-              <button
-                onClick={() => onToggleTrai(!enforce_trai)}
-                className={`px-3.5 py-2 rounded-2xl text-xs font-black uppercase font-mono-code transition-all border-2 border-b-4 flex items-center gap-2 cursor-pointer ${
-                  enforce_trai
-                    ? isWithinTraiHours
-                      ? 'bg-sky-500/15 border-sky-500/50 border-b-sky-600 text-sky-400 hover:bg-sky-500/25'
-                      : 'bg-indigo-500/15 border-indigo-500/50 border-b-indigo-600 text-indigo-400 hover:bg-indigo-500/25'
-                    : 'bg-slate-800 border-slate-700 border-b-slate-900 text-slate-400 hover:bg-slate-700'
-                }`}
-                title="Toggle TRAI commercial communications window (08:00–19:00 IST)"
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>
-                  {enforce_trai
-                    ? isWithinTraiHours
-                      ? `TRAI Active (${istHour}:00 IST)`
-                      : `TRAI Deferred (+12h)`
-                    : 'TRAI Filter Off'}
-                </span>
-              </button>
-            )}
-
-            {/* Cryptographic Ledger Indicator */}
-            <div className="px-3.5 py-2 rounded-2xl text-xs font-mono-code font-bold bg-violet-500/15 border-2 border-violet-500/40 border-b-4 border-b-violet-600 text-violet-400 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{ledger_chain.length} Blocks Verified</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Navigation Action Strip */}
-        <div className="pt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[rgb(var(--color-muted))] font-bold uppercase text-[10px] tracking-wider">
-              Quick Actions:
-            </span>
-            <button
-              onClick={() => onNavigateTab(1)}
-              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-sky-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-sky-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Bot className="w-3.5 h-3.5 text-sky-400" />
-              <span>Console</span>
-            </button>
-            <button
-              onClick={() => onNavigateTab(2)}
-              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-emerald-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-emerald-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Coins className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Benchmark</span>
-            </button>
-            <button
-              onClick={() => onNavigateTab(3)}
-              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-amber-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-amber-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Sliders className="w-3.5 h-3.5 text-amber-400" />
-              <span>Policy</span>
-            </button>
-            <button
-              onClick={() => onNavigateTab(4)}
-              className="px-3 py-1.5 rounded-xl bg-[rgb(var(--color-surface))] hover:bg-violet-500/20 text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] hover:border-violet-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <FileCheck className="w-3.5 h-3.5 text-violet-400" />
-              <span>Ledger</span>
-            </button>
-          </div>
-
-          <div className="text-[11px] font-mono-code text-[rgb(var(--color-muted))]">
-            Subunit Standard: <strong className="text-[rgb(var(--color-text))]">Integer Paise</strong> (0 float drift)
-          </div>
-        </div>
+      {/* 1. Operations Header */}
+      <div className="flex items-center justify-between pb-1">
+        <h1 className="duo-h1 text-2xl text-[rgb(var(--color-text))]">
+          Overview
+        </h1>
       </div>
 
       {/* 2. Core Financial Recovery & Operation Metrics */}
@@ -253,9 +156,6 @@ export const TabHome: React.FC<TabHomeProps> = ({
                 <h2 className="duo-h2 text-base text-amber-400">
                   Review Queue ({pending_queue.length})
                 </h2>
-                <p className="duo-body text-xs">
-                  Review recommendations generated under Manual Policy-Gated mode before customer dispatch.
-                </p>
               </div>
             </div>
             <span className="text-[10px] font-mono-code font-black px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
@@ -312,34 +212,49 @@ export const TabHome: React.FC<TabHomeProps> = ({
         </div>
       )}
 
-      {/* 4. Bank CBS Gateway Latency & Pacing Matrix */}
-      <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[rgb(var(--color-line))]">
-          <div>
-            <h2 className="duo-h2 flex items-center gap-2 text-base">
-              <Server className="w-4 h-4 text-sky-400 stroke-[2.5]" />
-              <span>Bank Gateways</span>
-            </h2>
-            <p className="duo-body text-xs">
-              Monitors bank core availability. When an issuing bank degrades, retries are paced to protect authorization mandates.
-            </p>
+      {/* 4. Bank CBS Gateway Latency & Pacing Matrix - Horizontally Scrollable Carousel */}
+      <div className="p-4 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] shadow-sm space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Server className="w-4 h-4 text-sky-400 stroke-[2.5]" />
+            <h2 className="duo-h2 text-sm">Bank Gateways</h2>
+            <span className="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
+              5 Gateways
+            </span>
           </div>
-          <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30 w-fit">
-            5 CONNECTED GATEWAYS
-          </span>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => scrollHomeBanks('left')}
+              className="w-7 h-7 rounded-lg bg-[rgb(var(--color-surface))] hover:bg-[rgb(var(--color-line))] text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] flex items-center justify-center border border-[rgb(var(--color-line))] transition-colors cursor-pointer"
+              title="Scroll left"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => scrollHomeBanks('right')}
+              className="w-7 h-7 rounded-lg bg-[rgb(var(--color-surface))] hover:bg-[rgb(var(--color-line))] text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] flex items-center justify-center border border-[rgb(var(--color-line))] transition-colors cursor-pointer"
+              title="Scroll right"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div
+          ref={homeBankScrollRef}
+          className="flex items-stretch gap-3 overflow-x-auto pb-1 pt-0.5 scroll-smooth no-scrollbar"
+        >
           {bankList.map((bank) => {
             const info = bank_cbs_health[bank] || { status: 'HEALTHY', avg_recovery_mins: 0 };
             const isHealthy = info.status === 'HEALTHY';
             return (
               <div
                 key={bank}
-                className={`p-3.5 rounded-2xl border-2 border-b-4 transition-all flex flex-col justify-between ${
+                className={`min-w-[210px] max-w-[230px] shrink-0 p-3 rounded-2xl border-2 transition-all flex flex-col justify-between ${
                   isHealthy
-                    ? 'bg-[rgb(var(--color-surface))] border-emerald-500/40 border-b-emerald-600'
-                    : 'bg-rose-500/10 border-rose-500/50 border-b-rose-600'
+                    ? 'bg-[rgb(var(--color-surface))] border-emerald-500/40'
+                    : 'bg-rose-500/10 border-rose-500/50'
                 }`}
               >
                 <div>
@@ -353,17 +268,17 @@ export const TabHome: React.FC<TabHomeProps> = ({
                       }`}
                     />
                   </div>
-                  <div className="text-[11px] font-mono-code font-bold mb-2.5">
+                  <div className="text-[11px] font-mono-code font-bold mb-2">
                     {isHealthy ? (
                       <span className="text-emerald-400">HEALTHY (0m)</span>
                     ) : (
-                      <span className="text-rose-400">DOWN ({info.avg_recovery_mins || 45}m pacing)</span>
+                      <span className="text-rose-400">DOWN ({info.avg_recovery_mins || 45}m pace)</span>
                     )}
                   </div>
                 </div>
 
                 {onUpdateBankStatus && (
-                  <div className="flex gap-1.5 pt-2 border-t border-[rgb(var(--color-line))]">
+                  <div className="flex gap-1 pt-1.5 border-t border-[rgb(var(--color-line))]">
                     <button
                       onClick={() => onUpdateBankStatus(bank, 'HEALTHY', 0)}
                       className={`flex-1 py-1 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
@@ -402,9 +317,6 @@ export const TabHome: React.FC<TabHomeProps> = ({
                 Active Promises ({active_p2p.length})
               </h2>
             </div>
-            <span className="text-[10px] font-mono-code font-black px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
-              RBI FAIR RECOVERY COMPLIANT
-            </span>
           </div>
 
           <div className="divide-y divide-[rgb(var(--color-line))] max-h-[260px] overflow-y-auto pr-1">
@@ -424,9 +336,6 @@ export const TabHome: React.FC<TabHomeProps> = ({
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono-code text-[11px] text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20 whitespace-nowrap">
                       Frozen until: {epochDate} IST
-                    </span>
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
-                      NO RETRIES
                     </span>
                   </div>
                 </div>

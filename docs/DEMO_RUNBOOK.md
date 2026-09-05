@@ -1,9 +1,8 @@
 # Revive — Hackathon Demonstration Runbook & Pitch Guide
 
-> **Step-by-Step Evaluator Walkthrough, Script & Live Scenario Tracing**  
-> 📁 *Canonical Location: [`docs/DEMO_RUNBOOK.md`](./docs/DEMO_RUNBOOK.md)*
+> **Step-by-Step Evaluator Walkthrough, Script & Live Scenario Tracing**
 
-[← Back to Master Overview](./README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [Business Case (BUSINESS.md)](./BUSINESS.md)
+[← Back to Master Overview](../README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [Business Case (BUSINESS.md)](./BUSINESS.md)
 
 ---
 

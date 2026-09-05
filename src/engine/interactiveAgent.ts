@@ -214,27 +214,30 @@ export class InteractiveAgentEngine {
     // 2. Structured Decision Trace
     const step1 = `Perceived customer prompt: "${customerText.slice(0, 60)}..." for entity ${entityId} (₹${(amountPaise / 100).toFixed(2)})`;
     const step2 = `NLP Classification: ${detectedIntent}. Bank ${bank} status verified.`;
-    const step3 = isHalt
+    const step3 = `Evaluated candidate interventions for intent ${detectedIntent}. Selected action: ${actionType}.`;
+    const step4 = isHalt
       ? `Mathematical stopping rule: User requested cancellation -> 0-touch immediate halt.`
       : ptpEpoch
       ? `Registered PTP for epoch ${ptpEpoch} (${ptpDateStr}). Freezing retry sequences to preserve customer NPS.`
       : `Computed MDP Net Yield > 0. Generating contextual 1-Click Razorpay payment artifact.`;
-    const step4 = `Selected Channel: ${ChannelType.WHATSAPP_HINGLISH}. Policy status: Enforced & Hash Chained.`;
+    const step5 = `Selected Channel: ${ChannelType.WHATSAPP_HINGLISH}. Policy status: Enforced & Hash Chained.`;
 
     const decisionTrace: AgenticDecisionTrace = {
       agent_id: "agent_sentinel_v2",
       telemetry_audit: step1,
       cbs_diagnosis: step2,
-      fatigue_reasoning: step3,
+      fatigue_reasoning: step4,
       recommended_channel: ChannelType.WHATSAPP_HINGLISH,
       confidence_score: isHalt ? 0.99 : ptpEpoch ? 0.96 : 0.94,
       auto_executed: true,
       timestamp: new Date().toISOString(),
+      decision_source: "INTERACTIVE_NLP_AGENT",
       reasoning_chain: {
         step_1_telemetry: step1,
         step_2_cbs_diagnosis: step2,
-        step_3_mdp_yield: step3,
-        step_4_execution_mode: step4,
+        step_3_intervention_selection: step3,
+        step_4_mdp_yield: step4,
+        step_5_execution_mode: step5,
       },
     };
 

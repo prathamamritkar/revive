@@ -1,9 +1,8 @@
 # Revive — Production Setup & Live Gateway Integration Guide
 
-> **Deployment Guide for Live Payment Gateways, Carrier Communications & Webhook Listeners**  
-> 📁 *Canonical Location: [`docs/LIVE_SETUP_GUIDE.md`](./docs/LIVE_SETUP_GUIDE.md)*
+> **Deployment Guide for Live Payment Gateways, Carrier Communications & Webhook Listeners**
 
-[← Back to Master Overview](./README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [Demo Pitch Guide (DEMO_RUNBOOK.md)](./DEMO_RUNBOOK.md)
+[← Back to Master Overview](../README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [Demo Pitch Guide (DEMO_RUNBOOK.md)](./DEMO_RUNBOOK.md)
 
 ---
 

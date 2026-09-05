@@ -169,12 +169,9 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
             <h2 className="duo-h2">
               Recovery Progression
             </h2>
-            <p className="duo-body text-xs">
-              Cumulative recovered capital vs. communication dispatch costs across block transitions
-            </p>
           </div>
-          <span className="text-[11px] font-mono-code font-black text-sky-400 px-3 py-1 rounded-full bg-sky-500/15 border-2 border-sky-500/40">
-            {ledger_chain.length} BLOCKS
+          <span className="text-[11px] font-mono-code font-bold text-sky-400 px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/40">
+            {ledger_chain.length} Blocks
           </span>
         </div>
 
@@ -232,9 +229,6 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
             <h2 className="duo-h2">
               Block Explorer
             </h2>
-            <p className="duo-body text-xs">
-              Every payment state transition is an immutable SHA-256 Merkle link
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -264,31 +258,39 @@ export const TabLedger: React.FC<TabLedgerProps> = ({ state, onVerifyProof }) =>
           </div>
         )}
 
-        {/* Filter / Search Bar */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        {/* Unified Search & Status Filter Toolbar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--color-muted))]" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[rgb(var(--color-muted))]" />
             <input
               type="text"
               placeholder="Search by Entity ID, Block ID, or SHA-256 Hash..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-[rgb(var(--color-surface))] border-2 border-[rgb(var(--color-line))] text-xs text-[rgb(var(--color-text))] placeholder:text-[rgb(var(--color-muted))] outline-none focus:border-sky-500 font-mono-code"
+              className="w-full pl-10 pr-9 py-2 text-xs rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-[rgb(var(--color-text))] placeholder:text-[rgb(var(--color-muted))] outline-none focus:border-sky-500 font-mono-code"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="sm:w-56 shrink-0">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2.5 rounded-2xl bg-[rgb(var(--color-surface))] border-2 border-[rgb(var(--color-line))] text-xs font-mono-code font-bold text-[rgb(var(--color-text))] outline-none cursor-pointer"
+              className="w-full py-2 px-3 rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-xs font-mono-code text-[rgb(var(--color-text))] outline-none focus:border-sky-500 cursor-pointer"
             >
               <option value="ALL">All Statuses</option>
-              <option value="RECOVERED">RECOVERED</option>
-              <option value="RETRY_SCHEDULED">RETRY_SCHEDULED</option>
-              <option value="PROMISE_TO_PAY_PENDING">PROMISE_TO_PAY_PENDING</option>
-              <option value="HALTED_TERMINAL_FAILURE">HALTED_TERMINAL_FAILURE</option>
-              <option value="HALTED_MAX_ATTEMPTS">HALTED_MAX_ATTEMPTS</option>
+              <option value="RECOVERED">Recovered</option>
+              <option value="RETRY_SCHEDULED">Retry Scheduled</option>
+              <option value="PROMISE_TO_PAY_PENDING">Promise-to-Pay Pending</option>
+              <option value="HALTED_TERMINAL_FAILURE">Halted (Terminal Failure)</option>
+              <option value="HALTED_MAX_ATTEMPTS">Halted (Max Attempts)</option>
             </select>
           </div>
         </div>

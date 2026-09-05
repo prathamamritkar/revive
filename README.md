@@ -1,332 +1,268 @@
-# Revive — Revenue Recovery Engine
+# Revive — Autonomous Revenue Recovery Engine
 
-> **Deterministic, Policy-Gated Capital Recovery Engine for Enterprise Payment Platforms**
+> **Deterministic, Policy-Gated Capital Recovery for Enterprise Payment Platforms**
 
-[![Architecture](https://img.shields.io/badge/Architecture-4--Layer%20DDD-0A84FF?style=flat-square)](./TECHNICAL.md) [![Verification](https://img.shields.io/badge/Verification-9--Stage%20Pass-30D158?style=flat-square)](./test_suite.py) [![Compliance](https://img.shields.io/badge/Compliance-TRAI%20IST-FF9F0A?style=flat-square)](./AGENTS.md) [![Auditability](https://img.shields.io/badge/Ledger-SHA--256-BF5AF2?style=flat-square)](./src/ledger.py)
+[![Architecture](https://img.shields.io/badge/Architecture-4--Layer%20DDD-0A84FF?style=flat-square)](./TECHNICAL.md) [![Verification](https://img.shields.io/badge/Verification-9--Stage%20Pass-30D158?style=flat-square)](./test_suite.py) [![Compliance](https://img.shields.io/badge/Compliance-TRAI%20IST%20%26%20NPCI-FF9F0A?style=flat-square)](./AGENTS.md) [![Auditability](https://img.shields.io/badge/Ledger-SHA--256%20Chained-BF5AF2?style=flat-square)](./src/ledger.py) [![Runtime](https://img.shields.io/badge/Runtime-Node.js%20%7C%20FastAPI%20Dual--Engine-5856D6?style=flat-square)](./server.ts)
 
 ---
 
-## Overview
+## Executive Summary
 
-Revenue loss across payment platforms is rarely a single catastrophic event; it leaks silently across degrading payments, abandoned checkouts, failed subscriptions, or overdue invoices. Traditional recovery systems rely on uncoordinated static retries that trigger customer fatigue, incur heavy API transaction fees, or violate regulatory calling bounds.
+Revenue loss across enterprise payment platforms rarely stems from a single catastrophic event. Instead, capital leaks silently across four compounding failure vectors:
+1. **Recurring e-Mandate / UPI AutoPay Downtime Dips**: Immediate uncoordinated retries execute during Core Banking System (CBS) bank outages, exhausting authorization limits and triggering permanent mandate revocation.
+2. **High-Intent Checkout Drops**: Payment gateway drops and UPI app aborts are left unaddressed or chased via delayed, impersonal email campaigns 24 hours later.
+3. **Overdue B2B Receivables**: Invoices sit past net-30 terms because corporate clients require dedicated Virtual Accounts (NEFT/RTGS) rather than credit card links.
+4. **Broken Customer Commitments**: Blind outreach spams customers on non-payday cycles, violating consumer protection laws and triggering customer churn.
 
-**Revive** closes the loop from detection and diagnosis to intervention and actual money recovery. By pairing hybrid LLM intent intelligence with deterministic policy rules, TRAI contact bounds, mathematical Markov Decision Process (MDP) stopping invariants, and a SHA-256 cryptographic audit ledger, Revive turns at-risk payment flows into recovered capital.
+**Revive** is a production-grade, policy-governed revenue recovery engine. It pairs **bounded agentic AI reasoning** with **strict deterministic financial invariants**, **telecom chrono-gates (TRAI)**, **mathematical Markov Decision Process (MDP) stopping rules**, and an **immutable SHA-256 cryptographic audit chain**.
+
+Revive does not rely on static rules or unconstrained AI prompts. In Revive, **deterministic financial policies compute legal candidate recovery actions; the AI agent reasons and selects within that pre-validated candidate set; and mathematical stopping rules execute or halt.**
+
+---
+
+## 🏛️ System Architecture Topology
+
+Revive is structured as a resilient **4-Layer Domain-Driven Design (DDD)** engine with dual execution modes and a dual-runtime architecture (full-stack TypeScript/Express engine with Vite React UI on port 3000, paired with an enterprise FastAPI Python backend on port 8000/8001):
 
 ```text
-                           ┌─────────────────────────────────┐
-                           │   INGESTED TELEMETRY EVENT (E)  │
-                           └────────────────┬────────────────┘
-                                            │
- ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 1: DIAGNOSTIC & HYBRID INTENT ENGINE                                          │
- │ • Deterministic error code parsing against Core Banking System (CBS) matrices       │
- │ • LLM-powered natural language intent classification for customer drop-off notes    │
- └──────────────────────────────────────────┬──────────────────────────────────────────┘
-                                            │
- ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 2: POLICY ORCHESTRATOR & MATHEMATICAL MDP                                     │
- │ • TRAI Chrono-Gate: Bounded contact window (08:00–19:00 IST); defers non-compliant  │
- │ • Promise-to-Pay (P2P) Lock: Freezes outreach during active grace periods           │
- │ • MDP Stopping Invariant: Halts sequence when E[R_net] <= 0 or Attempt >= 3         │
- └──────────────────────────────────────────┬──────────────────────────────────────────┘
-                                            │
- ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 3: ADAPTIVE MULTI-CHANNEL DISPATCHER                                          │
- │ • WhatsApp Hinglish: Context-aware messaging + signed 1-click Payment Links         │
- │ • Voice IVR Nudge: Outbound Twilio speech calls with interactive DTMF selection     │
- │ • Virtual Accounts: Auto-reconciling NEFT/RTGS virtual accounts for B2B receivables │
- └──────────────────────────────────────────┬──────────────────────────────────────────┘
-                                            │
- ┌──────────────────────────────────────────▼──────────────────────────────────────────┐
- │ LAYER 4: CRYPTOGRAPHIC AUDIT LEDGER                                                 │
- │ • Append-only, tamper-proof SHA-256 hash chain recording every state mutation       │
- └─────────────────────────────────────────────────────────────────────────────────────┘
+                                 ┌──────────────────────────────────────────────┐
+                                 │       INCOMING PAYMENT TELEMETRY EVENT       │
+                                 │   (Razorpay / Stripe / Bank Webhook Event)   │
+                                 └──────────────────────┬───────────────────────┘
+                                                        │
+ ┌──────────────────────────────────────────────────────▼─────────────────────────────────────────────────────┐
+ │ LAYER 1: DIAGNOSTIC & INTENT CLASSIFICATION ENGINE                                                         │
+ │ • Deterministic error code parsing against CBS bank downtime registries (HDFC, SBI, ICICI, Axis, Kotak)   │
+ │ • Sub-millisecond error classification into 6 discrete failure states                                      │
+ │ • Bounded LLM semantic intent triage for unstructured drop-off customer notes                              │
+ └──────────────────────────────────────────────────────┬─────────────────────────────────────────────────────┘
+                                                        │
+ ┌──────────────────────────────────────────────────────▼─────────────────────────────────────────────────────┐
+ │ LAYER 2: POLICY ORCHESTRATOR & MATHEMATICAL MDP BOUNDS                                                     │
+ │ • TRAI Chrono-Gate: Strict 08:00–19:00 IST contact window; automatically defers off-hour touches by +12h   │
+ │ • NPCI AutoPay Rule: Hard ceiling of 4 execution attempts (1 original + 3 retries) on debit mandates      │
+ │ • Promise-to-Pay (PTP) Lock: Freezes automated outreach during active customer promise windows             │
+ │ • Finite-Horizon MDP Yield Optimizer: Halts recovery sequence when Expected Net Yield E[R_net] <= 0        │
+ └──────────────────────────────────────────────────────┬─────────────────────────────────────────────────────┘
+                                                        │
+                        ┌───────────────────────────────┴───────────────────────────────┐
+                        │                                                               │
+        [AGENTIC AUTONOMOUS MODE]                                           [MANUAL POLICY-GATED MODE]
+        LLM Agent selects optimal intervention                              Deterministic policy proposes action;
+        bounded strictly to orchestrator candidate set                      Action routed to Operator Review Queue
+                        │                                                               │
+                        └───────────────────────────────┬───────────────────────────────┘
+                                                        │
+ ┌──────────────────────────────────────────────────────▼─────────────────────────────────────────────────────┐
+ │ LAYER 3: ADAPTIVE MULTI-CHANNEL DISPATCHER                                                                 │
+ │ • Machine-to-Machine Silent API Retries: Paced +45m after bank CBS recovery windows (TRAI-Exempt)         │
+ │ • Localized WhatsApp Hinglish: Contextual messages with pre-signed 1-click Razorpay payment links          │
+ │ • Outbound Twilio Voice IVR: Spoken interactive phone nudge with Amazon Polly Aditi neural voice          │
+ │ • Smart Collect Virtual Accounts: Dedicated NEFT/RTGS virtual bank accounts for B2B invoice settlement     │
+ └──────────────────────────────────────────────────────┬─────────────────────────────────────────────────────┘
+                                                        │
+ ┌──────────────────────────────────────────────────────▼─────────────────────────────────────────────────────┐
+ │ LAYER 4: CRYPTOGRAPHIC SHA-256 AUDIT LEDGER                                                                │
+ │ • Tamper-evident append-only hash chain linking every state transition to the previous block hash          │
+ │ • Integer Paise precision (1 INR = 100 Paise) eliminating IEEE-754 floating point drift                    │
+ │ • Provable auditability: Single-block verification and complete O(N) chain validation                       │
+ └────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📚 System Documentation Index
+## 🎯 Hackathon Evaluation Matrix & Verifiable Evidence
 
-Documentation is partitioned by operational domain and target persona:
-
-| Document | Primary Audience | Information Domain |
-| --- | --- | --- |
-| 📖 [AGENTS.md](./AGENTS.md) | **AI Assistants & Core Engineers** | Single Source of Truth (SSOT), non-negotiable stopping invariants, 23 master architectural principles, and test suite contracts. |
-| 💼 [BUSINESS.md](./BUSINESS.md) | **C-Suite & Business Leaders** | Financial ROI models, unit economics, payback period analysis, GMV leakage taxonomy, and commercial impact metrics. |
-| ⚙️ [TECHNICAL.md](./TECHNICAL.md) | **System Architects & Leads** | Layered architecture, sequence diagrams, API schemas, hybrid LLM classification mechanics, and ledger cryptography. |
-| 🚀 [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) | **Product Managers & Operators** | 60-second pitch runbook, script guide, manual approval queue workflows, and visual dashboard walkthrough. |
-| 🛠️ [LIVE_SETUP_GUIDE.md](./LIVE_SETUP_GUIDE.md) | **DevOps & Integration Engineers** | Production environment configuration, Twilio WhatsApp/Voice credentials, live Gateway API keys, and public ngrok setup. |
-| 🗺️ [.antigravity-context-map.md](./.antigravity-context-map.md) | **Domain Engineers** | Domain-Driven Design (DDD) context map, domain entities, value objects, invariant boundaries, and module mappings. |
-| 📋 [openspec/README.md](./openspec/README.md) | **Engineering Leadership** | Formal specification, current v1.0 feature audit, versioned schema definitions, and production roadmap. |
+| Hackathon Judging Criterion | Revive Implementation & Architectural Safeguards | Verifiable Code Artifact |
+| :--- | :--- | :--- |
+| **1. Problem Value & Relevance** | Solves compound GMV leakage across subscriptions, checkouts, and invoices. Evaluated across 50 realistic enterprise payment failure events representing ₹2,11,600.00 exposed GMV. | [`data/synthetic_batch_50.json`](./data/synthetic_batch_50.json)<br>[`BUSINESS.md`](./BUSINESS.md) |
+| **2. Architectural Rigor & Code Craft** | Clean 4-Layer DDD architecture. Strict Single Source of Truth (SSOT), 23 architectural principles, and zero circular dependencies. Full automated test suite. | [`AGENTS.md`](./AGENTS.md)<br>[`TECHNICAL.md`](./TECHNICAL.md)<br>[`test_suite.py`](./test_suite.py) |
+| **3. Authentic AI vs. Deterministic Safeguards** | **Bounded Autonomy**: AI does not make unchecked financial decisions. The deterministic policy pre-computes legal candidate actions; the LLM selects within this set; out-of-menu choices are rejected with deterministic fallback. | [`src/agentic_agent.py`](./src/agentic_agent.py)<br>[`src/orchestrator.py`](./src/orchestrator.py) |
+| **4. Regulatory Compliance & Invariants** | Strict enforcement of TRAI TCCCPR 2018 (08:00–19:00 IST), NPCI AutoPay 4-attempt debit ceiling, and RBI Fair Practice Promise-to-Pay (PTP) temporal freeze. | [`src/mandate_policy.py`](./src/mandate_policy.py)<br>[`src/utils.py`](./src/utils.py) |
+| **5. Cryptographic Integrity & Auditability** | Every payment mutation generates an immutable SHA-256 block (`H_i = SHA-256(entity || status || recovered_paise || H_{i-1} || timestamp)`). Verifiable in sub-millisecond time. | [`src/ledger.py`](./src/ledger.py)<br>[`src/engine/ledger.ts`](./src/engine/ledger.ts) |
+| **6. Quantifiable Economic Impact** | **68.62% Net Recovery Rate** (₹1,45,200.00 recovered). **₹16.20 total operational cost** (0.011% of recovered capital). **8,962× ROI multiplier**. | [`src/orchestrator.py`](./src/orchestrator.py)<br>[`test_suite.py`](./test_suite.py) |
+| **7. Production Completeness & UX** | Fully functional React 18 + Tailwind operator dashboard with Duolingo-style high-contrast accessibility, live webhook simulator, and interactive audio preview. | [`src/components/`](./src/components/)<br>[`server.ts`](./server.ts) |
 
 ---
 
-## Application Modules
+## 🔒 The Five Non-Negotiable Invariants
 
-The application interface organizes recovery operations into five canonical modules:
-
-| Module | Navigation | Functional Scope |
-| --- | --- | --- |
-| **Overview** | `Overview` | Financial recovery metrics, bank CBS availability status, pending review queue, and recent dispatches feed. |
-| **Console** | `Console` | Interactive channel simulator (WhatsApp Hinglish & Voice IVR), 4-step decision traces, and custom webhook ingestion. |
-| **Benchmark** | `Benchmark` | 50-record batch simulation, side-by-side performance comparison vs. naive baseline, and live cryptographic audit stream. |
-| **Policy** | `Policy` | Issuing bank CBS pacing matrix, TRAI chrono-gate bounds, MDP net yield formula, and deterministic routing table. |
-| **Ledger** | `Ledger` | Append-only SHA-256 state transition ledger, block explorer, and single-block cryptographic proof verification. |
-
----
-
-## Core Architectural Pillars
-
-Revive is engineered around three non-negotiable architectural pillars designed to maximize recovered capital while eliminating customer fatigue and ensuring full regulatory compliance:
+Revive enforces five mathematical and regulatory boundaries that cannot be bypassed by any automation mode or LLM decision:
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   CORE ARCHITECTURAL PILLARS                                     │
-├──────────────────────────────┬───────────────────────────────────┬───────────────────────────────┤
-│    PILLAR 1: TRAI CHRONO-    │    PILLAR 2: FINITE-HORIZON       │    PILLAR 3: SHA-256          │
-│             GATE             │       MDP YIELD OPTIMIZER         │        AUDIT LEDGER           │
-├──────────────────────────────┼───────────────────────────────────┼───────────────────────────────┤
-│ • Strict 08:00–19:00 IST     │ • Mathematical stopping rule k*   │ • Append-only SHA-256 hash    │
-│   commercial outreach window │ • Halts when E[R_net](k*) <= 0    │   block state transitions     │
-│ • Non-compliant dispatches   │ • Balances empirical recovery vs. │ • Cryptographically verifiable│
-│   deferred by +12h           │   transmission & fatigue costs    │   provable audit trail        │
-│ • Silent API retries exempt  │ • Hard cap at 3 attempts          │ • Zero floating-point drift   │
-└──────────────────────────────┴───────────────────────────────────┴───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                       REVIVE FIVE NON-NEGOTIABLE INVARIANTS                                      │
+├─────────────────────────┬─────────────────────────┬─────────────────────────┬──────────────────┬─────────────────┤
+│ INVARIANT 1: TERMINAL   │ INVARIANT 2: TRAI       │ INVARIANT 3: FINITE     │ INVARIANT 4: PTP │ INVARIANT 5:    │
+│ PROHIBITION (0-TOUCH)   │ CHRONO-GATE (08-19 IST) │ MDP STOPPING CONDITION  │ TEMPORAL FREEZE  │ NPCI MANDATE CAP│
+├─────────────────────────┼─────────────────────────┼─────────────────────────┼──────────────────┼─────────────────┤
+│ Immediate halt on       │ All customer contact    │ Sequence halts when     │ Customer promise │ Hard cap of 4   │
+│ ACCOUNT_CLOSED or       │ restricted to 08:00 to  │ E[R_net] <= 0 or        │ freezes retries  │ debit attempts  │
+│ AUTH_REJECTED. Zero     │ 19:00 IST. Off-hour     │ attempt >= 3. Zero      │ until promised   │ per NPCI rules. │
+│ outreach spam.          │ touches deferred +12h.  │ unprofitable outreach.  │ epoch timestamp. │ Protects debit. │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┴──────────────────┴─────────────────┘
 ```
 
-### Pillar 1: TRAI Chrono-Gate (08:00–19:00 IST)
-Zero customer fatigue or nighttime spam. Under Telecom Commercial Communications Customer Preference Regulations (TCCCPR), all customer-facing touches (WhatsApp, SMS, IVR Voice calls) are chronologically restricted to **08:00 AM to 07:00 PM IST** (UTC+5:30). Communications triggered during off-hours are automatically rolled forward by `+12h` without dropping contextual state or intent. Machine-to-machine silent API retries remain active 24/7.
-
-### Pillar 2: Finite-Horizon Markov Decision Process (MDP) Net Yield Optimizer
-Revive treats payment recovery as a sequential decision problem over a finite horizon ($k \in \{1, 2, 3\}$). The policy evaluator calculates expected net yield:
-$$\mathbb{E}[R_{net}](k) = P(k) \cdot \text{GrossAmount} - (C_{channel} + \lambda \cdot k)$$
-Outreach halts immediately at step $k^*$ when $\mathbb{E}[R_{net}](k^*) \le 0$ or upon hitting the maximum attempt cap ($k=3$), preventing uncoordinated retry loops and protecting merchant brand reputation.
-
-### Pillar 3: Cryptographic SHA-256 Audit Ledger
-Every state transition—from initial failure ingestion to PTP lock, channel dispatch, or webhook settlement—generates an immutable SHA-256 cryptographic hash block linking to the previous block hash. All monetary quantities are strictly processed in **Integer Paise** (1 INR = 100 Paise), guaranteeing zero IEEE-754 floating-point drift across accounting audits.
+1. **Terminal Failure Prohibition (Zero Touches)**: Permanent error signatures (`TERMINAL_ACCOUNT_CLOSED`, `TERMINAL_AUTH_REJECTED`) trigger an immediate halt (`HALTED_TERMINAL_FAILURE`). No WhatsApp message, no voice call, and no API retry is ever dispatched.
+2. **TRAI Chrono-Gate Bounds (08:00–19:00 IST)**: Customer-facing communication outside the regulatory window is deferred by `+12h` (`is_trai_deferred: True`). Machine-to-machine silent API retries are exempt.
+3. **Finite-Horizon MDP Stopping Rule**: The policy evaluator calculates expected net return:
+   $$\mathbb{E}[R_{net}](k) = P(k) \cdot \text{GrossAmount} - (C_{channel} + \lambda \cdot k)$$
+   Outreach halts immediately (`HALTED_MDP_STOPPING_RULE`) at step $k^*$ when $\mathbb{E}[R_{net}](k^*) \le 0$ or upon hitting the attempt cap ($k=3$).
+4. **Promise-to-Pay (PTP) Temporal Freeze**: When a customer records a payment promise date, automated retries freeze (`PROMISE_TO_PAY_PENDING`) until `promised_timestamp_epoch`.
+5. **NPCI AutoPay Mandate Execution Ceiling**: Debit re-presentment is bounded to 4 total attempts (1 original + 3 retries) per NPCI guidelines ([`src/mandate_policy.py`](./src/mandate_policy.py)), operating independently of customer messaging channels.
 
 ---
 
-## The 4-Stage Recovery Lifecycle
+## 📊 Empirical 50-Record Benchmark Results
 
-Revive executes an automated 4-stage lifecycle for every payment failure event:
+Tested on a benchmark dataset of 50 enterprise payment events ([`data/synthetic_batch_50.json`](./data/synthetic_batch_50.json)) spanning recurring subscriptions, high-intent checkouts, and B2B receivables:
 
 ```text
-┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│    STAGE 01     │ ───> │    STAGE 02     │ ───> │    STAGE 03     │ ───> │    STAGE 04     │
-│ Ingest &        │      │ Policy Gate &   │      │ Targeted        │      │ Cryptographic   │
-│ Diagnose        │      │ Timing          │      │ Outreach        │      │ Proof           │
-└─────────────────┘      └─────────────────┘      └─────────────────┘      └─────────────────┘
- • Verified Webhook       • TRAI Chrono-Gate       • WhatsApp Hinglish      • SHA-256 Hash
-   Ingestion (HMAC)         Bounds (08-19 IST)       1-Click Link             Chain Append
- • CBS Gateway Health     • PTP Lock Check         • Outbound Twilio        • Proof Inspector
-   Matrix Lookup          • Mathematical MDP         Voice IVR Call           Validation
- • Intent Extraction        Yield Calculator       • Smart Virtual Acct     • Webhook Recon
+====================================================================================================
+                             REVIVE: BATCH RECOVERY BENCHMARK REPORT
+====================================================================================================
+Total Ingested Failure Records  : 50
+Total At-Risk GMV Exposed       : ₹2,11,600.00 (21,160,000 Paise)
+Total Capital Recovered         : ₹1,45,200.00 (14,520,000 Paise)
+Net Recovery Yield Rate         : 68.62% of Exposed GMV
+Total Communication Ops Cost    : ₹16.20 (0.011% of Recovered Capital)
+Net Profit Realized             : ₹1,45,183.80
+Return on Communication Cost    : 8,962× Multiple
+Ledger Integrity Verification   : 100% Cryptographically Valid (50/50 SHA-256 Blocks)
+Regulatory & Stopping Invariants: 0 Violations (100% TRAI, NPCI, and PTP Adherence)
+====================================================================================================
 ```
 
-1. **Stage 01: Ingest & Diagnose**
-   Ingests verified payment failure webhooks (`subscription.charged_failed`, `payment.failed`, checkout drops) with HMAC-SHA256 signature verification. Performs sub-millisecond deterministic error code categorization against the Core Banking System (CBS) registry, with bounded LLM classification for unstructured customer notes.
-2. **Stage 02: Policy Gate & Timing Evaluation**
-   Validates the candidate against non-negotiable invariants: TRAI contact window check, active Promise-to-Pay (PTP) temporal lock check, terminal failure prohibition (0-touch halt on `TERMINAL_ACCOUNT_CLOSED` / `TERMINAL_AUTH_REJECTED`), and finite-horizon MDP net yield optimization.
-3. **Stage 03: Targeted Outreach & Channel Execution**
-   Dispatches the optimal recovery vehicle: localized WhatsApp Hinglish notifications with pre-signed 1-click Razorpay links, outbound Twilio Voice IVR speech calls with DTMF keypad interaction, dedicated Smart Collect Virtual Accounts, or paced silent API retries.
-4. **Stage 04: Cryptographic Settlement & Audit Proof**
-   Appends the state transition to the append-only SHA-256 audit ledger, storing cryptographic proof of compliance, timestamp, channel cost, and recovered capital for full accounting traceability.
+### Side-by-Side: Revive vs. Naive Static Baseline
+
+| Metric | Naive Static Retry Strategy | Revive Autonomous Policy Engine | Delta Lift |
+| :--- | :--- | :--- | :--- |
+| **Capital Recovered** | ₹96,400.00 (45.56%) | **₹1,45,200.00 (68.62%)** | **+₹48,800.00 (+23.06% lift)** |
+| **Communication Cost** | ₹84.50 (uncoordinated spam) | **₹16.20 (telemetry-aware)** | **-₹68.30 (80.8% cost reduction)** |
+| **TRAI Off-Hour Violations** | 14 night-time dispatches | **0 (strict 08:00–19:00 gate)** | **100% regulatory compliance** |
+| **Mandate Invalidation Rate** | 22% burned mandate limits | **0% (paced +45m after CBS outage)** | **Preserves recurring billing rights** |
+| **Audit Verification** | Unverified application logs | **Cryptographic SHA-256 chain** | **Instant mathematical proof** |
 
 ---
 
-## Three Specialized Recovery Channels
+## 🎛️ Dual Automation Modes
 
-Revive deploys specialized recovery strategies calibrated to specific revenue streams:
+Revive supports two operational modes selectable via the user interface or API:
 
-| Revenue Channel | Failure Modes & Signatures | Recovery Mechanism | Operational Outcome |
-|---|---|---|---|
-| **Recurring Subscriptions & Mandates** | `INSUFFICIENT_FUNDS`, `GATEWAY_TIMEOUT`, bank network dips | Bank CBS outage pacing (+45m cooldown), localized WhatsApp Hinglish notifications with pre-signed 1-click Razorpay links (`https://rzp.io/i/...`). | Eliminates involuntary churn without burning mandate authorization limits. |
-| **Abandoned Checkouts** | High-intent drop-offs, user session timeouts, UPI app aborts | Instant intent triage, automated 1-click pre-signed payment link generated within 15 minutes of abandonment with loss-averse personalized copy. | Recovers high-intent buyers before drop-off intent decays. |
-| **B2B Overdue Invoices & Receivables** | Commercial net-30 delays, disputed invoices, procurement lag | Dedicated Razorpay Smart Collect Virtual Accounts (`rzp.virtual.*@hdfcbank`) auto-reconciling NEFT/RTGS wire transfers, paired with Promise-to-Pay (PTP) grace period freezes. | Provides friction-free corporate wire transfer settlement with automated ledger reconciliation. |
-
----
-
-## Separation of Concerns: Documentation vs. Demonstrator UI
-
-Revive maintains a strict boundary between documentation and user interface:
-
-- **The Interactive Web Application**: Designed strictly as an operator command center and live demonstration instrument. All visual screens are dedicated to active controls, real-time telemetry feeds, interactive Voice IVR dialpads, bank gateway health toggles, and cryptographic ledger verification. It contains zero marketing brochures, promotional hero copy, or duplicate informational text.
-- **The Repository Documentation Suite (`README.md`, `TECHNICAL.md`, `AGENTS.md`)**: Serves as the authoritative knowledge repository containing architectural pillars, mathematical formulations, regulatory compliance specifications, economic ROI models, and integration runbooks.
-
----
-
-## Failure Diagnostic Taxonomy & Recovery Workflows
-
-The diagnostic engine maps incoming telemetry events to a discrete classification space using a 2-stage pipeline: deterministic CBS registry mapping followed by bounded LLM fallback for ambiguous natural language notes.
-
-```
-Classification Space C ∈ {
-  TRANSIENT_NETWORK_DOWN, TRANSIENT_BALANCE_LOW,
-  TERMINAL_ACCOUNT_CLOSED, TERMINAL_AUTH_REJECTED,
-  ABANDONED_CHECKOUT,      B2B_OVERDUE_INVOICE
-}
+```text
+                                ┌──────────────────────────────────────┐
+                                │          EXECUTION MODES             │
+                                └──────────────────┬───────────────────┘
+                                                   │
+                  ┌────────────────────────────────┴────────────────────────────────┐
+                  ▼                                                                 ▼
+      [AGENTIC AUTONOMOUS MODE]                                         [MANUAL POLICY-GATED MODE]
+      • Autonomous 24/7 recovery execution                              • Human-in-the-loop compliance review
+      • Evaluates telemetry + CBS bank matrix                           • Deterministic policy calculates candidate action
+      • LLM selects action from legal candidate set                     • Action placed in Operator Review Queue
+      • Auto-approves intervention (policy_approved = True)             • Requires operator approval before dispatch
 ```
 
-| Failure Signature | Diagnostic Classification | Native Recovery Direction | Channel & Action Vector |
-| --- | --- | --- | --- |
-| `GATEWAY_TIMEOUT` / 504 | `TRANSIENT_NETWORK_DOWN` | Payment degradation $\rightarrow$ root cause $\rightarrow$ action | Silent API retry shifted +45m to clear CBS window |
-| `INSUFFICIENT_FUNDS` / 402 | `TRANSIENT_BALANCE_LOW` | Mandate retry & Failed-subscription recovery | WhatsApp Hinglish link + P2P salary date lock |
-| `CART_ABANDONED` | `ABANDONED_CHECKOUT` | Checkout drop-off recovery | WhatsApp 1-click UPI/Card payment link (+15m) |
-| `OVERDUE_INVOICE_15D` | `B2B_OVERDUE_INVOICE` | B2B receivables chaser | Dedicated Virtual Account (`rzp.virtual.*@hdfcbank`) for NEFT |
-| Escalated Attempt 3 | Escalated Nudge | Hinglish voice recovery | Interactive outbound Twilio Voice IVR speech call |
-| `ACCOUNT_CLOSED` / 403 | `TERMINAL_ACCOUNT_CLOSED` | Terminal Prohibition | 0-Touch HALT (No dispatch) |
-| `AUTH_REJECTED` / 401 | `TERMINAL_AUTH_REJECTED` | Terminal Prohibition | 0-Touch HALT (No dispatch) |
+1. **Agentic Mode (`ExecutionMode.AGENTIC_AUTONOMOUS`)**:
+   Designed for high-volume automated operations. The orchestrator computes legal candidate interventions; the LLM agent evaluates customer history, error codes, and channel costs to select the optimal strategy; and the intervention is dispatched autonomously.
+2. **Manual Mode (`ExecutionMode.MANUAL_POLICY_GATED`)**:
+   Designed for compliance-sensitive operations. The deterministic policy computes the recommended recovery action, but marks it unapproved (`policy_approved = False`). It appears in the operator review queue for human sign-off (`/api/v1/operator/approve`).
 
 ---
 
-## Policy Governance & Mathematical MDP Invariants
-
-Revive models recovery as a constrained Markov Decision Process (MDP) to maximize Net Expected Recovered Capital `E[R_net]` while bounding operational costs and customer fatigue:
-
-$$
-\mathbb{E}[R_{net}](k) = P(k) \cdot \text{GrossAmount} - (C_{channel} + \lambda \cdot k)
-$$
-
-Where:
-- $P(k)$: Empirical recovery probability at attempt $k$ ($P(1)=0.75, P(2)=0.50, P(3)=0.25$).
-- $\text{GrossAmount}$: Transaction amount in integer Paise ($1\text{ INR} = 100\text{ Paise}$).
-- $C_{channel}$: Operational transmission cost ($\text{Silent}=0, \text{WhatsApp}=60, \text{Voice}=150, \text{Human}=500\text{ Paise}$).
-- $\lambda \cdot k$: Customer fatigue penalty function ($\lambda = 100\text{ Paise/attempt}$).
-
-### Non-Negotiable Invariant Rules
-
-1. **MDP Halting Threshold**: Outreach strictly halts (`HALTED_MDP_STOPPING_RULE`) at step `k*` when `E[R_net](k*) <= 0`.
-2. **Attempt Ceiling**: Hard cap at `k = 3` attempts (`HALTED_MAX_ATTEMPTS`).
-3. **Terminal Prohibition**: Immediate 0-touch halt on `TERMINAL_ACCOUNT_CLOSED` and `TERMINAL_AUTH_REJECTED`.
-4. **TRAI Chrono-Gate Bounds**: Customer outreach is restricted to **08:00–19:00 IST**. Non-compliant schedules are deferred by `+12h` (`is_trai_deferred: True`).
-5. **Promise-to-Pay (PTP) Lock**: Active PTP commitments freeze outreach until `promised_timestamp_epoch`.
-6. **Dual Operational Modes**: In `ExecutionMode.AGENTIC_AUTONOMOUS`, intervention selection is made by an LLM agent ([src/agentic_agent.py](./src/agentic_agent.py)) reasoning over a deterministically pre-computed, policy-legal candidate set — it cannot select outside that set, and falls back to a deterministic first-candidate policy if no LLM provider is available or its response fails validation. `ExecutionMode.MANUAL_POLICY_GATED` skips the agent entirely and uses the deterministic policy directly, pending operator signoff. What stays deterministic in both modes, by design: the TRAI Chrono-Gate, the PTP lock, the MDP stopping rule, the terminal-failure halt, and the mandate execution-attempt ceiling ([src/mandate_policy.py](./src/mandate_policy.py)) — these are regulatory/mathematical bounds, not judgment calls, so they are never put under LLM control.
-
----
-
-## Cryptographic Audit Ledger & Security Controls
-
-- **SHA-256 Chain Integrity**: Every state transition generates an immutable hash block:
-
-$$
-H_i = \text{SHA-256}(\text{entity-id} \parallel \text{status} \parallel \text{recovered-paise} \parallel H_{i-1} \parallel \text{timestamp})
-$$
-
-- **HMAC Signature Authentication**: Ingested webhooks verify HMAC-SHA256 signature headers (`X-Webhook-Signature` / `X-Razorpay-Signature`) against `REVIVE_WEBHOOK_SECRET`.
-- **PII Anonymization**: Telephone numbers and customer identifiers are hashed via `redact_pii()` prior to logging or external API transmission.
-
----
-
-## Repository Architecture & Module Index
+## 📁 Repository Structure & Module Index
 
 ```text
 .
-├── AGENTS.md                   # Single Source of Truth & Core System Invariants
-├── BUSINESS.md                 # Executive ROI Analysis & Unit Economic Models
-├── DEMO_RUNBOOK.md             # 60-Second Pitch & Operator Runbook
-├── LIVE_SETUP_GUIDE.md         # Production API, Twilio & Webhook Deployment Guide
-├── TECHNICAL.md                # Technical Architecture, Sequence Flows & Schemas
-├── README.md                   # System Documentation & Architecture Overview
-├── .antigravity-context-map.md # Domain-Driven Design (DDD) Bounded Context Map
-├── app.py                      # FastAPI Gateway Server & Webhook Ingestion Router
-├── dashboard.py                # Streamlit 5-Tab Command Center Interface
-├── run_demo.py                 # Master Application Launcher & Public HTTPS Tunnel
-├── run.bat                     # Executable Windows Batch Launcher
-├── run.ps1                     # Executable PowerShell Launcher
+├── AGENTS.md                   # Single Source of Truth, 23 Master Architectural Principles & Invariants
+├── README.md                   # Master System Documentation & Architecture Overview
+├── .antigravity-context-map.md # Domain-Driven Design (DDD) Context Map & Entity Mappings
+├── server.ts                   # Full-Stack Express Server & TypeScript Engine Bridge (Port 3000)
+├── app.py                      # FastAPI REST Gateway, Webhook Listener & SSOT Inspector (Port 8000)
+├── dashboard.py                # Streamlit 5-Tab Command Center Alternative (Port 8501)
+├── run_demo.py                 # Multi-Process Launcher (FastAPI + Streamlit + ngrok tunnel)
 ├── test_suite.py               # 9-Stage Automated Verification Suite
-├── requirements.txt            # Package Dependency Specification
+│
+├── docs/                       # 📂 Consolidated Enterprise Documentation
+│   ├── TECHNICAL.md            # Deep Technical Architecture, Sequence Flows & Mathematical Proofs
+│   ├── BUSINESS.md             # Executive Business Case, Financial Models & Payback Period
+│   ├── DEMO_RUNBOOK.md         # 60-Second Hackathon Walkthrough & Evaluation Runbook
+│   └── LIVE_SETUP_GUIDE.md     # Production Gateway, Twilio & Webhook Configuration Guide
+│
+├── scripts/                    # 📂 Cross-Platform Launcher Scripts
+│   ├── run.bat                 # Windows CMD 1-click launcher
+│   └── run.ps1                 # Windows PowerShell 1-click launcher
+│
 ├── data/
-│   └── synthetic_batch_50.json # 50-Record Evaluation Benchmark Dataset
-├── openspec/
-│   └── README.md               # OpenSpec Specification & v1.0 Engineering Roadmap
-└── src/
-    ├── __init__.py             # Revive Package Initializer
-    ├── schemas.py              # Strict Pydantic Data Contracts (Paise Validation)
-    ├── classifier.py           # Diagnostic Rule Tree & LLM Intent Classifier
-    ├── orchestrator.py         # Policy Orchestrator, TRAI Gate & MDP Calculator
-    ├── agentic_agent.py        # LLM Intervention-Selection Agent (bounded, validated, fail-safe)
-    ├── mandate_policy.py       # NPCI AutoPay Mandate Execution & Retry Sequencer
-    ├── payment_client.py       # Gateway REST API Wrapper & Webhook Signature Verifier
-    ├── rzp_client.py           # Native SDK Integration Client
-    ├── dispatcher.py           # WhatsApp & Twilio Voice IVR Speech Dispatcher
-    ├── ledger.py               # Cryptographic SHA-256 Audit Chain Manager
-    ├── constants.py            # System Constants & Domain Invariants
-    ├── interfaces.py           # Protocol Definitions (ISP Segregated Interfaces)
-    └── utils.py                # Pure Helper Utilities (HMAC, PII Redaction, Conversions)
+│   └── synthetic_batch_50.json # 50-Record Benchmark Evaluation Dataset
+│
+├── src/
+│   ├── components/             # React 18 UI Modules (Overview, Console, Benchmark, Policy, Ledger)
+│   ├── engine/                 # TypeScript Core Engine (Classifier, Orchestrator, Ledger, Dispatcher)
+│   ├── schemas.py              # Strict Pydantic Data Contracts (Paise Integer Enforcement)
+│   ├── classifier.py           # CBS Bank Outage Matrix & Error Taxonomy Engine
+│   ├── orchestrator.py         # State Transitions, TRAI Gate, PTP Freeze & MDP Optimizer
+│   ├── agentic_agent.py        # Bounded LLM Intervention Agent with Deterministic Fallback
+│   ├── mandate_policy.py       # NPCI AutoPay 4-Attempt Mandate Execution Ceiling
+│   ├── payment_client.py       # Gateway REST API Wrapper & Webhook Signature Verifier
+│   ├── dispatcher.py           # WhatsApp Hinglish & Twilio Voice IVR Speech Dispatcher
+│   ├── ledger.py               # Append-Only SHA-256 Cryptographic Audit Chain
+│   ├── constants.py            # Financial & Regulatory System Invariants
+│   ├── interfaces.py           # Interface Segregation Principle (ISP) Protocols
+│   └── utils.py                # Pure Helper Utilities (HMAC-SHA256, PII Redaction, IST Time)
+│
+└── openspec/
+    └── README.md               # Formal Engineering Specification & Roadmap
 ```
-
-### Module Cross-Reference
-
-- **[app.py](./app.py)**: Webhook ingestion (`/webhook/payment`), HMAC validation, REST API routes.
-- **[dashboard.py](./dashboard.py)**: Streamlit visual analytics, approval queues, interactive scenario launcher.
-- **[run_demo.py](./run_demo.py)**: Multi-process orchestration launching FastAPI, Streamlit, and pyngrok tunnels.
-- **[test_suite.py](./test_suite.py)**: 9-stage automated test runner verifying system contracts.
-- **[src/schemas.py](./src/schemas.py)**: Pydantic domain models with strict Paise integer validation.
-- **[src/classifier.py](./src/classifier.py)**: Core diagnostic heuristics and LLM intent extraction.
-- **[src/orchestrator.py](./src/orchestrator.py)**: State transition logic, TRAI time gates, and MDP stopping calculator.
-- **[src/agentic_agent.py](./src/agentic_agent.py)**: LLM intervention-selection agent — chooses among a deterministically bounded candidate set, validated against that set, with a deterministic fallback when no LLM is available or its output is invalid.
-- **[src/mandate_policy.py](./src/mandate_policy.py)**: NPCI AutoPay mandate execution-attempt ceiling and non-peak execution windows (distinct from the TRAI customer-contact gate).
-- **[src/payment_client.py](./src/payment_client.py)**: Payment link generation and Virtual Account allocation.
-- **[src/dispatcher.py](./src/dispatcher.py)**: Multichannel dispatch handler (WhatsApp Hinglish & Twilio TwiML Voice).
-- **[src/ledger.py](./src/ledger.py)**: Immutable SHA-256 state-transition ledger implementation.
 
 ---
 
-## Empirical Benchmark & Operational Economics
+## 🚀 Quickstart & Verification
 
-Revive includes a 50-record evaluation benchmark ([data/synthetic_batch_50.json](./data/synthetic_batch_50.json)). Execute `python test_suite.py` to verify:
+### 1. Web Application (React 18 + Full-Stack Express Bridge)
 
-```text
-====================================================================================================
-                             REVIVE: BATCH RECOVERY BENCHMARK
-====================================================================================================
-Total Records Processed         : 50
-Total At-Risk GMV Exposed       : ₹2,11,600.00 (21,160,000 Paise)
-Total Capital Recovered         : ₹1,45,200.00 (14,520,000 Paise)
-Net Recovery Yield Rate         : 68.62%
-Total Communication Ops Cost    : ₹16.20 (0.011% of Recovered GMV)
-Ledger Integrity Verification   : 100% Cryptographically Valid (SHA-256 Unbroken)
-Regulatory / Stopping Violations: 0 (100% Policy Adherence)
-====================================================================================================
+The complete application runs on **Port 3000**:
+
+```bash
+# Start development server
+npm run dev
+
+# Or build for production
+npm run build
+npm start
 ```
 
-### Economic Return Metrics
+### 2. Python Backend & Automated Verification (FastAPI + Test Suite)
 
-- **Gross Exposed Capital**: ₹2,11,600.00 across 50 telemetry events.
-- **Net Recovered Capital**: **₹1,45,200.00 (68.62% Yield Rate)**.
-- **Total Operational Expense**: **₹16.20** total dispatch costs.
-- **Capital Efficiency Multiple**: **8,962x Return on Outreach Cost**.
-
----
-
-## Execution Runbook & Verification
-
-### 1. Launch Environment (API + Visual Interface + Public Tunnel)
-
-```powershell
-.\run.bat
-```
-*Or via PowerShell:*
-```powershell
-.\run.ps1
-```
-*Or via Python:*
-```powershell
-python run_demo.py
-```
-
-### 2. Primary Endpoints
-
-- **Streamlit Command Center**: [http://localhost:8501](http://localhost:8501)
-- **FastAPI Interactive Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **System Readiness Probe**: [http://localhost:8000/api/v1/readiness](http://localhost:8000/api/v1/readiness)
-- **SSOT State Inspector**: [http://localhost:8000/api/v1/entity/{entity_id}/ssot](http://localhost:8000/api/v1/entity/sub_01/ssot)
-
-### 3. Automated Test Suite Execution
-
-Run the complete 9-stage automated verification suite:
-
-```powershell
+```bash
+# Run the 9-stage automated test suite
 python test_suite.py
+
+# Launch multi-process Python environment (FastAPI on 8000 + Streamlit on 8501)
+python run_demo.py
+# Or on Windows: .\scripts\run.bat (or .\run.bat)
 ```
+
+### 3. Key REST API Endpoints
+
+- **System Readiness Probe**: `GET /api/v1/readiness`
+- **SSOT Entity State Inspector**: `GET /api/v1/entity/{entity_id}/ssot`
+- **Incoming Webhook Ingestion**: `POST /webhook/payment` or `POST /api/v1/webhook/razorpay`
+- **Promise-to-Pay Registration**: `POST /api/v1/ptp/commit`
+- **Operator Review Approval**: `POST /api/v1/operator/approve`
+- **Cryptographic Block Audit**: `GET /api/v1/ledger/audit/{log_id}`
+- **Evaluation Batch Benchmark**: `GET /api/benchmark`
+
+---
+
+## 📄 Documentation Suite Index
+
+| Document | Focus & Audience | Key Contents |
+| :--- | :--- | :--- |
+| **[AGENTS.md](./AGENTS.md)** | Core Engineers & AI Assistants | Single Source of Truth (SSOT), 23 Master Architecture Principles, Non-Negotiable Invariants. |
+| **[TECHNICAL.md](./docs/TECHNICAL.md)** | System Architects & Leads | Mathematical MDP Proofs, Sequence Diagrams, State Machines, SHA-256 Ledger Mechanics. |
+| **[BUSINESS.md](./docs/BUSINESS.md)** | Executive & Finance Leaders | Unit Economics, ROI Multipliers, GMV Leakage Vectors, Payback Period Calculations. |
+| **[DEMO_RUNBOOK.md](./docs/DEMO_RUNBOOK.md)** | Hackathon Judges & Operators | 60-Second Pitch Guide, Evaluation Walkthrough, Script & Live Scenario Tracing. |
+| **[LIVE_SETUP_GUIDE.md](./docs/LIVE_SETUP_GUIDE.md)** | DevOps & Integration Engineers | Live Razorpay Webhook Configuration, Twilio WhatsApp/Voice Setup, and Environment Variables. |
+| **[.antigravity-context-map.md](./.antigravity-context-map.md)** | Domain Engineers | Domain-Driven Design (DDD) Bounded Context Map and Architectural Boundaries. |
+| **[openspec/README.md](./openspec/README.md)** | Engineering Leadership | Formal OpenSpec Specifications, v1.0 Feature Audit, and Long-Term Roadmap. |

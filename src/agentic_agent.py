@@ -133,10 +133,22 @@ def _context_to_prompt_payload(context: InterventionContext) -> str:
     })
 
 
+def _clean_json_str(raw: str) -> str:
+    cleaned = raw.strip()
+    if "```" in cleaned:
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    first_brace = cleaned.find("{")
+    last_brace = cleaned.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        cleaned = cleaned[first_brace:last_brace + 1]
+    return cleaned
+
+
 def _parse_and_validate(raw: str, context: InterventionContext, decision_source: str) -> Optional[AgenticInterventionDecision]:
     valid_names = {c.strategy_name for c in context.candidates}
     try:
-        data = json.loads(raw.strip())
+        data = json.loads(_clean_json_str(raw))
         chosen = data.get("selected_strategy_name", "")
         if chosen not in valid_names:
             raise ValueError(f"Agent selected '{chosen}', outside legal candidate set {valid_names}")

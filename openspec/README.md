@@ -2,7 +2,7 @@
 
 > **Formal Versioned Specifications, Feature Audit & Roadmap**
 
-[← Back to Master Overview](../README.md) • [Technical Architecture (TECHNICAL.md)](../TECHNICAL.md) • [Master Rules (AGENTS.md)](../AGENTS.md)
+[← Back to Master Overview](../README.md) • [Technical Architecture (docs/TECHNICAL.md)](../docs/TECHNICAL.md) • [Master Rules (AGENTS.md)](../AGENTS.md)
 
 ---
 
@@ -59,4 +59,4 @@ MDP_EXPECTED_NET_LE_0    → HALT               (0 touches)
 | SHA-256 audit ledger | ✓ Done | Append-only chain + O(n) verify ([src/ledger.py](../src/ledger.py)) |
 | 50-record benchmark dataset | ✓ Done | [data/synthetic_batch_50.json](../data/synthetic_batch_50.json) (68.62% net recovery yield) |
 | 1-Click Master Launcher | ✓ Done | [run_demo.py](../run_demo.py), [run.bat](../run.bat), [run.ps1](../run.ps1) with `pyngrok` tunneling |
-| 8-Stage Automated Test Suite | ✓ Done | [test_suite.py](../test_suite.py) (100% assertion pass rate) |
+| 9-Stage Automated Test Suite | ✓ Done | [test_suite.py](../test_suite.py) (100% assertion pass rate across all 9 verification stages) |

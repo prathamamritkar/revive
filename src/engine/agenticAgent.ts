@@ -92,7 +92,15 @@ function deterministicFallback(candidates: CandidateOption[]): AgenticInterventi
 function parseAndValidate(raw: string, candidates: CandidateOption[]): AgenticInterventionDecision | null {
   const validNames = new Set(candidates.map((c) => c.strategyName));
   try {
-    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+    let cleaned = raw.trim();
+    if (cleaned.includes('```')) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    }
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
     const data = JSON.parse(cleaned);
     const chosen = data.selectedStrategyName;
     if (!validNames.has(chosen)) {

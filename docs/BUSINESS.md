@@ -1,9 +1,8 @@
 # Revive — Enterprise Business Case & Financial Strategy
 
-> **Quantifiable ROI, Unit Economics & Commercial Impact Analysis for Autonomous Revenue Recovery**  
-> 📁 *Canonical Location: [`docs/BUSINESS.md`](./docs/BUSINESS.md)*
+> **Quantifiable ROI, Unit Economics & Commercial Impact Analysis for Autonomous Revenue Recovery**
 
-[← Back to Master Overview](./README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [60-Second Demo Pitch (DEMO_RUNBOOK.md)](./DEMO_RUNBOOK.md)
+[← Back to Master Overview](../README.md) • [Technical Architecture (TECHNICAL.md)](./TECHNICAL.md) • [60-Second Demo Pitch (DEMO_RUNBOOK.md)](./DEMO_RUNBOOK.md)
 
 ---
 

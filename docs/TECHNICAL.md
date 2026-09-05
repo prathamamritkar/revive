@@ -1,9 +1,8 @@
 # Revive — Technical Architecture & Mathematical Specification
 
-> **Deep Technical System Architecture, Sequence Flow & State Invariant Specifications**  
-> 📁 *Canonical Location: [`docs/TECHNICAL.md`](./docs/TECHNICAL.md)*
+> **Deep Technical System Architecture, Sequence Flow & State Invariant Specifications**
 
-[← Back to Master Overview](./README.md) • [Architectural Rules (AGENTS.md)](./AGENTS.md) • [System Readiness Probe](http://localhost:8000/api/v1/readiness)
+[← Back to Master Overview](../README.md) • [Architectural Rules (AGENTS.md)](../AGENTS.md) • [System Readiness Probe](http://localhost:8000/api/v1/readiness)
 
 ---
 

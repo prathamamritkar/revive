@@ -169,3 +169,12 @@ body {
 *::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--color-cyan));
 }
+
+/* Hide scrollbar for carousels while maintaining scroll capability */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

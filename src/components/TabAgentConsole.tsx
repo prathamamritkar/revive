@@ -12,6 +12,7 @@ import {
   Clock,
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Copy,
   Check,
@@ -64,6 +65,14 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
   const [selectedScenario, setSelectedScenario] = useState<CustomerScenarioPreset>(
     PRESET_CUSTOMER_SCENARIOS[0]
   );
+  const scenarioScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollScenarios = (direction: 'left' | 'right') => {
+    if (scenarioScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -260 : 260;
+      scenarioScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
   const [customInput, setCustomInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -82,16 +91,18 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
       agent_id: 'agent_sentinel_v2',
       telemetry_audit: 'Ingested mandate failure sub_mandate_4011 for ₹2,999.00 (HDFC INSUFFICIENT_FUNDS).',
       cbs_diagnosis: 'Bank: HDFC (HEALTHY). Classification: TRANSIENT_BALANCE_LOW.',
-      fatigue_reasoning: 'Calculated MDP Yield: E[R_net] = ₹2,099.40 > 0. Generating 1-Click WhatsApp outreach.',
+      fatigue_reasoning: 'Calculated MDP Yield: E[R(net)] = ₹2,099.40 > 0. Generating 1-Click WhatsApp outreach.',
       recommended_channel: ChannelType.WHATSAPP_HINGLISH,
       confidence_score: 0.96,
       auto_executed: true,
       timestamp: new Date().toISOString(),
+      decision_source: 'autonomous_llm',
       reasoning_chain: {
         step_1_telemetry: 'Mandate auto-debit failed with INSUFFICIENT_FUNDS at 09:30 AM IST.',
         step_2_cbs_diagnosis: 'HDFC CBS is operational. Classified as transient salary delay.',
-        step_3_mdp_yield: 'Expected recovery yield ₹2,099.40 exceeds WhatsApp channel cost ₹0.60.',
-        step_4_execution_mode: 'Autonomous execution enabled. 1-Click Razorpay link generated.',
+        step_3_intervention_selection: 'Selected 1-Click WhatsApp outreach with low-friction payment link.',
+        step_4_mdp_yield: 'Expected net recovery yield E[R(net)] = ₹2,099.40 exceeds channel cost ₹0.60.',
+        step_5_execution_mode: 'Autonomous execution enabled. 1-Click Razorpay link generated.',
       },
     };
 
@@ -367,13 +378,10 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
     <div className="space-y-6 pb-6">
       {/* Top Header Banner */}
       <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1 max-w-2xl">
-          <h1 className="duo-h1 text-2xl sm:text-3xl text-[rgb(var(--color-text))]">
+        <div>
+          <h1 className="duo-h1 text-2xl text-[rgb(var(--color-text))]">
             Console
           </h1>
-          <p className="duo-body text-xs sm:text-sm">
-            Interactive triage, Hinglish voice IVR speech, and telemetry webhook simulation.
-          </p>
         </div>
 
         {/* Action Controls & Channel Switcher */}
@@ -426,33 +434,65 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
         </div>
       </div>
 
-      {/* Preset Failure Scenario Selector Chips */}
-      <div className="p-4 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="duo-label text-xs">TEST FAILURE SCENARIOS:</span>
+      {/* Horizontally Scrollable Component Carousel for Test Failure Scenarios */}
+      <div className="p-3.5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] shadow-sm space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="duo-label text-xs font-bold text-[rgb(var(--color-muted))]">
+              Test Scenarios
+            </span>
+            <span className="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-md bg-[rgb(var(--color-surface))] text-[rgb(var(--color-muted))] border border-[rgb(var(--color-line))]">
+              {PRESET_CUSTOMER_SCENARIOS.length} Presets
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => scrollScenarios('left')}
+              className="w-7 h-7 rounded-lg bg-[rgb(var(--color-surface))] hover:bg-[rgb(var(--color-line))] text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] flex items-center justify-center border border-[rgb(var(--color-line))] transition-colors cursor-pointer"
+              title="Scroll left"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => scrollScenarios('right')}
+              className="w-7 h-7 rounded-lg bg-[rgb(var(--color-surface))] hover:bg-[rgb(var(--color-line))] text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] flex items-center justify-center border border-[rgb(var(--color-line))] transition-colors cursor-pointer"
+              title="Scroll right"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <div
+          ref={scenarioScrollRef}
+          className="flex items-stretch gap-2.5 overflow-x-auto pb-1 pt-0.5 scroll-smooth no-scrollbar"
+        >
           {PRESET_CUSTOMER_SCENARIOS.map((scen) => {
             const isSel = selectedScenario.id === scen.id;
             return (
               <button
                 key={scen.id}
                 onClick={() => handleSelectScenario(scen)}
-                className={`p-3 rounded-2xl text-left transition-all border-2 border-b-4 cursor-pointer flex flex-col justify-between ${
+                className={`min-w-[240px] max-w-[270px] shrink-0 p-2.5 rounded-xl text-left transition-all border-2 cursor-pointer flex flex-col justify-between ${
                   isSel
-                    ? 'bg-sky-500/15 border-sky-500 border-b-sky-600 text-[rgb(var(--color-text))] shadow-sm'
+                    ? 'bg-sky-500/15 border-sky-500 text-[rgb(var(--color-text))] shadow-xs'
                     : 'bg-[rgb(var(--color-surface))] border-[rgb(var(--color-line))] hover:border-slate-500 text-[rgb(var(--color-muted))]'
                 }`}
               >
-                <div className="font-mono-code font-black text-xs text-[rgb(var(--color-text))] truncate">
-                  {scen.title}
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="font-mono-code font-bold text-xs text-[rgb(var(--color-text))] truncate">
+                    {scen.title}
+                  </span>
+                  {isSel && (
+                    <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
+                  )}
                 </div>
-                <div className="text-[10px] text-[rgb(var(--color-muted))] line-clamp-1 mt-1">
-                  {scen.bank} · {formatINR(scen.amountPaise)}
-                </div>
-                <div className="mt-2 text-[9px] font-mono-code font-black px-1.5 py-0.5 rounded-md bg-slate-800 text-sky-400 w-fit">
-                  {scen.initialError}
+                <div className="flex items-center justify-between text-[10px] font-mono-code text-[rgb(var(--color-muted))]">
+                  <span>{scen.bank} · {formatINR(scen.amountPaise)}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 font-bold text-[9px]">
+                    {scen.initialError}
+                  </span>
                 </div>
               </button>
             );
@@ -475,18 +515,14 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-slate-100">Razorpay Revive Assistant</span>
+                      <span className="font-bold text-sm text-slate-100">Revive Recovery Agent</span>
                       <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                     </div>
                     <span className="text-[10px] font-mono-code text-slate-400">
-                      Official Verified Merchant Channel · +91 98765 43210
+                      Verified Channel · +91 98765 43210
                     </span>
                   </div>
                 </div>
-
-                <span className="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                  TRAI COMPLIANT (IST)
-                </span>
               </div>
 
               {/* Chat Message Stream */}
@@ -775,82 +811,54 @@ export const TabAgentConsole: React.FC<TabAgentConsoleProps> = ({
           )}
         </div>
 
-        {/* Right Column (5 Cols): Agent Reasoning Trace & Invariant Checklist */}
+        {/* Right Column (5 Cols): Agent Reasoning Trace & Invariants */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="p-6 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-md space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b-2 border-[rgb(var(--color-line))]">
+          <div className="p-5 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-md space-y-3">
+            <div className="flex items-center justify-between pb-3 border-b border-[rgb(var(--color-line))]">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center font-bold border border-sky-500/30">
-                  <Sparkles className="w-4 h-4 stroke-[2.5]" />
+                  <Bot className="w-4 h-4 stroke-[2.5]" />
                 </div>
                 <div>
                   <h3 className="duo-h3 text-sm">Decision Trace</h3>
-                  <p className="duo-body text-[11px]">Multi-Step Rationale Chain</p>
+                  <p className="font-mono-code text-[11px] text-[rgb(var(--color-muted))]">
+                    {activeTrace?.decision_source || 'autonomous_agent'} · {activeTrace ? `${(activeTrace.confidence_score * 100).toFixed(0)}% conf` : '96% conf'}
+                  </p>
                 </div>
               </div>
 
-              <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                CONFIDENCE: {activeTrace ? `${(activeTrace.confidence_score * 100).toFixed(0)}%` : '96%'}
-              </span>
+              <button
+                onClick={() => {
+                  if (activeTrace) {
+                    navigator.clipboard.writeText(JSON.stringify(activeTrace, null, 2));
+                    setCopiedField('json');
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-[rgb(var(--color-surface))] hover:bg-[rgb(var(--color-line))] text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))] text-[11px] font-mono-code flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Copy Decision Trace JSON"
+              >
+                {copiedField === 'json' ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-400">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Copy JSON</span>
+                  </>
+                )}
+              </button>
             </div>
 
-            {/* 4 Structured Chain-of-Thought Steps */}
-            <div className="space-y-3 font-mono-code text-xs">
-              {/* Step 1: Telemetry */}
-              <div className="p-3 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] space-y-1">
-                <div className="flex items-center justify-between text-sky-400 font-bold text-[11px]">
-                  <span>STEP 1: INGESTION & PERCEPTION</span>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                </div>
-                <p className="text-[rgb(var(--color-text))] text-[11px] leading-relaxed">
-                  {activeTrace?.reasoning_chain?.step_1_telemetry ||
-                    activeTrace?.telemetry_audit ||
-                    'Ingested raw payment failure webhook with failure context.'}
-                </p>
-              </div>
+            {/* Raw Plain JSON Text output from AI Agent */}
+            <pre className="p-3.5 rounded-2xl bg-slate-950 font-mono-code text-[11px] text-emerald-400 overflow-x-auto overflow-y-auto max-h-[460px] border border-slate-800 leading-relaxed select-text whitespace-pre no-scrollbar">
+              {JSON.stringify(activeTrace || {}, null, 2)}
+            </pre>
 
-              {/* Step 2: CBS Diagnosis & Intent */}
-              <div className="p-3 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] space-y-1">
-                <div className="flex items-center justify-between text-amber-400 font-bold text-[11px]">
-                  <span>STEP 2: BANK CBS & INTENT CLASSIFICATION</span>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                </div>
-                <p className="text-[rgb(var(--color-text))] text-[11px] leading-relaxed">
-                  {activeTrace?.reasoning_chain?.step_2_cbs_diagnosis ||
-                    activeTrace?.cbs_diagnosis ||
-                    'Evaluated issuing bank health & mapped natural language intent.'}
-                </p>
-              </div>
-
-              {/* Step 3: MDP Yield & Stopping Rule */}
-              <div className="p-3 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] space-y-1">
-                <div className="flex items-center justify-between text-emerald-400 font-bold text-[11px]">
-                  <span>STEP 3: MATHEMATICAL MDP STOPPING RULE</span>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                </div>
-                <p className="text-[rgb(var(--color-text))] text-[11px] leading-relaxed">
-                  {activeTrace?.reasoning_chain?.step_3_mdp_yield ||
-                    activeTrace?.fatigue_reasoning ||
-                    'Verified expected net recovery yield > 0 under fatigue decay.'}
-                </p>
-              </div>
-
-              {/* Step 4: Policy & Action Dispatch */}
-              <div className="p-3 rounded-2xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] space-y-1">
-                <div className="flex items-center justify-between text-violet-400 font-bold text-[11px]">
-                  <span>STEP 4: POLICY GATE & TOOL EXECUTION</span>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                </div>
-                <p className="text-[rgb(var(--color-text))] text-[11px] leading-relaxed">
-                  {activeTrace?.reasoning_chain?.step_4_execution_mode ||
-                    `Channel: ${activeTrace?.recommended_channel || 'WHATSAPP_HINGLISH'}. Mode: AUTONOMOUS.`}
-                </p>
-              </div>
-            </div>
-
-            {/* Invariant Checklist */}
-            <div className="pt-2 border-t-2 border-[rgb(var(--color-line))] space-y-2">
-              <span className="duo-label block text-[10px]">DETERMINISTIC INVARIANTS:</span>
+            {/* Deterministic Invariants Strip */}
+            <div className="pt-2 border-t border-[rgb(var(--color-line))]">
               <div className="grid grid-cols-2 gap-2 text-[11px] font-mono-code">
                 <div className="p-2 rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] flex items-center justify-between">
                   <span className="text-[rgb(var(--color-muted))]">TRAI Gate:</span>

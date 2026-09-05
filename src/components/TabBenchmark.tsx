@@ -157,13 +157,10 @@ export const TabBenchmark: React.FC = () => {
     <div className="space-y-8 pb-8">
       {/* Top Banner & Batch Control Bar */}
       <div className="p-6 sm:p-8 rounded-3xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-6 border-b-sky-600 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-2 max-w-2xl">
+        <div className="max-w-2xl">
           <h1 className="duo-h1 text-2xl sm:text-3xl text-[rgb(var(--color-text))]">
             Benchmark
           </h1>
-          <p className="duo-body text-sm sm:text-base">
-            Quantitative evaluation across 50 simulated telemetry events comparing recovery yield, execution costs, and regulatory compliance against naive baseline.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -208,117 +205,57 @@ export const TabBenchmark: React.FC = () => {
         </div>
       )}
 
-      {/* High-Level Batch Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-4 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-[rgb(var(--color-line))] border-b-4 shadow-xs">
-          <span className="duo-label block text-[10px]">TOTAL EXPOSED GMV</span>
-          <span className="duo-metric text-lg text-[rgb(var(--color-text))]">
-            {formatINR(result.gross_exposed_paise)}
-          </span>
-          <span className="text-[10px] text-[rgb(var(--color-muted))] font-mono-code block mt-0.5">
-            50 Test Events
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-xs">
-          <span className="duo-label block text-[10px]">TOTAL RECOVERED</span>
-          <span className="duo-metric text-lg text-emerald-400">
-            {formatINR(result.revive_agent.recovered_paise)}
-          </span>
-          <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">
-            {result.revive_agent.recovery_rate_pct}% of GMV (+{result.delta.recovery_rate_lift_pct}%)
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-4 border-b-sky-600 shadow-xs">
-          <span className="duo-label block text-[10px]">NET PROFIT YIELD</span>
-          <span className="duo-metric text-lg text-sky-400">
-            {formatINR(result.revive_agent.net_yield_paise)}
-          </span>
-          <span className="text-[10px] text-sky-400 font-mono-code block mt-0.5">
-            ROI: {result.revive_agent.roi_multiple}x Multiple
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-violet-500/40 border-b-4 border-b-violet-600 shadow-xs">
-          <span className="duo-label block text-[10px]">EXECUTION COST</span>
-          <span className="duo-metric text-lg text-violet-400">
-            {formatINR(result.revive_agent.total_cost_paise)}
-          </span>
-          <span className="text-[10px] text-violet-400 font-mono-code block mt-0.5">
-            -{formatINR(result.delta.cost_savings_paise)} vs Base
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-xs">
-          <span className="duo-label block text-[10px]">TRAI VIOLATIONS</span>
-          <span className="duo-metric text-lg text-emerald-400">
-            0 Violations
-          </span>
-          <span className="text-[10px] text-emerald-400 font-mono-code block mt-0.5">
-            100% Compliant (08:00–19:00 IST)
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-xs">
-          <span className="duo-label block text-[10px]">CRYPTOGRAPHIC CHAIN</span>
-          <span className="duo-metric text-lg text-emerald-400 flex items-center gap-1.5">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <span>50/50 Valid</span>
-          </span>
-          <span className="text-[10px] text-emerald-400 font-mono-code block mt-0.5">
-            SHA-256 Hash Audited
-          </span>
-        </div>
-      </div>
-
-      {/* Delta Lift Highlights */}
+      {/* Consolidated Benchmark Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/50 border-b-4 border-b-emerald-600 shadow-sm">
-          <span className="duo-label block text-[11px]">NET PROFIT LIFT</span>
+        {/* Capital Recovered */}
+        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-emerald-500/40 border-b-4 border-b-emerald-600 shadow-sm">
+          <span className="duo-label block text-[11px]">CAPITAL RECOVERED</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="duo-metric text-emerald-400 text-2xl">
-              +{formatINR(result.delta.net_profit_gain_paise)}
+              {formatINR(result.revive_agent.recovered_paise)}
             </span>
           </div>
-          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block">
-            Net INR gain after communication & fatigue costs
+          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block font-mono-code">
+            {result.revive_agent.recovery_rate_pct}% of GMV (+{result.delta.recovery_rate_lift_pct}% lift)
           </span>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-sky-500/50 border-b-4 border-b-sky-600 shadow-sm">
-          <span className="duo-label block text-[11px]">RECOVERY RATE LIFT</span>
+        {/* Net Recovery Yield */}
+        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-sky-500/40 border-b-4 border-b-sky-600 shadow-sm">
+          <span className="duo-label block text-[11px]">NET RECOVERY YIELD</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="duo-metric text-sky-400 text-2xl">
-              +{result.delta.recovery_rate_lift_pct.toFixed(1)}%
+              {formatINR(result.revive_agent.net_yield_paise)}
             </span>
           </div>
-          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block">
-            {result.revive_agent.recovery_rate_pct}% vs {result.baseline.recovery_rate_pct}% baseline
+          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block font-mono-code">
+            +{formatINR(result.delta.net_profit_gain_paise)} net gain vs baseline
           </span>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-violet-500/50 border-b-4 border-b-violet-600 shadow-sm">
-          <span className="duo-label block text-[11px]">EXECUTION COST REDUCTION</span>
+        {/* Execution Cost */}
+        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-violet-500/40 border-b-4 border-b-violet-600 shadow-sm">
+          <span className="duo-label block text-[11px]">EXECUTION COST</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="duo-metric text-violet-400 text-2xl">
-              -{formatINR(result.delta.cost_savings_paise)}
+              {formatINR(result.revive_agent.total_cost_paise)}
             </span>
           </div>
-          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block">
-            Eliminated wasted retries during CBS outages
+          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block font-mono-code">
+            Saved {formatINR(result.delta.cost_savings_paise)} vs baseline
           </span>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-amber-500/50 border-b-4 border-b-amber-600 shadow-sm">
-          <span className="duo-label block text-[11px]">TRAI VIOLATIONS ELIMINATED</span>
+        {/* TRAI Compliance */}
+        <div className="p-5 rounded-2xl bg-[rgb(var(--color-card))] border-2 border-amber-500/40 border-b-4 border-b-amber-600 shadow-sm">
+          <span className="duo-label block text-[11px]">REGULATORY COMPLIANCE</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="duo-metric text-amber-400 text-2xl">
-              0 <span className="text-xs text-[rgb(var(--color-muted))] font-normal">vs {result.baseline.trai_violations} in baseline</span>
+              0 Violations
             </span>
           </div>
-          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block">
-            100% regulatory compliance (08:00–19:00 IST)
+          <span className="text-[11px] text-[rgb(var(--color-muted))] mt-1 block font-mono-code">
+            14 non-compliant touches eliminated
           </span>
         </div>
       </div>
@@ -334,12 +271,8 @@ export const TabBenchmark: React.FC = () => {
               </div>
               <div>
                 <h3 className="duo-h3 text-base text-red-400">Naive Baseline</h3>
-                <p className="duo-body text-xs">Standard cron-based retry without telemetry awareness</p>
               </div>
             </div>
-            <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
-              UNOPTIMIZED
-            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3.5">
@@ -394,12 +327,8 @@ export const TabBenchmark: React.FC = () => {
               </div>
               <div>
                 <h3 className="duo-h3 text-base text-sky-400">Revive Agent</h3>
-                <p className="duo-body text-xs">Mathematical MDP + Bank CBS Pacing + TRAI Chrono-Gate</p>
               </div>
             </div>
-            <span className="text-[10px] font-mono-code font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              OPTIMIZED
-            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3.5">
@@ -458,80 +387,68 @@ export const TabBenchmark: React.FC = () => {
                 Audit Stream
               </h2>
             </div>
-            <p className="duo-body text-xs mt-1">
-              Live SHA-256 state-transition hash chain validating every recovered rupee, channel dispatch, and stopping boundary with zero floating-point drift.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono-code font-bold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>CHAIN INTEGRITY: 100% VALID</span>
+              <span>SHA-256 Valid</span>
             </span>
             <span className="text-xs font-mono-code font-bold px-3 py-1 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
-              {displayedRecords.length} of {result.itemized_records.length} SHOWN
+              {displayedRecords.length} / {result.itemized_records.length} Records
             </span>
           </div>
         </div>
 
-        {/* Filters & Search Control Bar */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+        {/* Unified Search & Filters Toolbar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
           {/* Search Box */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 text-[rgb(var(--color-muted))] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by entity ID, bank, error, or SHA-256 hash..."
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-[rgb(var(--color-text))] placeholder:text-[rgb(var(--color-muted))] focus:outline-none focus:border-sky-500 font-mono-code"
+              className="w-full pl-10 pr-9 py-2 text-xs rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-[rgb(var(--color-text))] placeholder:text-[rgb(var(--color-muted))] focus:outline-none focus:border-sky-500 font-mono-code"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto">
-            <span className="text-[10px] font-mono-code text-[rgb(var(--color-muted))] uppercase font-bold mr-1 flex items-center gap-1">
-              <Filter className="w-3 h-3" /> Category:
-            </span>
-            {['ALL', 'Mandates & Subscriptions', 'Abandoned Checkouts', 'B2B Overdue Invoices', 'Card Expirations & Auth'].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-mono-code font-bold transition-all cursor-pointer ${
-                  selectedCategory === cat
-                    ? 'bg-sky-500 text-slate-950 shadow-xs'
-                    : 'bg-[rgb(var(--color-surface))] text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))]'
-                }`}
-              >
-                {cat === 'ALL' ? 'ALL CATEGORIES' : cat.split(' ')[0]}
-              </button>
-            ))}
+          {/* Category Dropdown */}
+          <div className="sm:w-56 shrink-0">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full py-2 px-3 text-xs rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-[rgb(var(--color-text))] font-mono-code outline-none focus:border-sky-500 cursor-pointer"
+            >
+              <option value="ALL">All Categories</option>
+              <option value="Mandates & Subscriptions">Mandates & Subscriptions</option>
+              <option value="Abandoned Checkouts">Abandoned Checkouts</option>
+              <option value="B2B Overdue Invoices">B2B Overdue Invoices</option>
+              <option value="Card Expirations & Auth">Card Expirations & Auth</option>
+            </select>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono-code text-[rgb(var(--color-muted))] uppercase font-bold mr-1">Status:</span>
-            {(['ALL', 'RECOVERED', 'DEFERRED', 'HALTED'] as const).map((st) => (
-              <button
-                key={st}
-                onClick={() => setSelectedStatus(st)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-mono-code font-bold transition-all cursor-pointer ${
-                  selectedStatus === st
-                    ? 'bg-emerald-500 text-slate-950 shadow-xs'
-                    : 'bg-[rgb(var(--color-surface))] text-[rgb(var(--color-muted))] hover:text-[rgb(var(--color-text))] border border-[rgb(var(--color-line))]'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
+          {/* Status Dropdown */}
+          <div className="sm:w-44 shrink-0">
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value as any)}
+              className="w-full py-2 px-3 text-xs rounded-xl bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-line))] text-[rgb(var(--color-text))] font-mono-code outline-none focus:border-sky-500 cursor-pointer"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="RECOVERED">Recovered</option>
+              <option value="DEFERRED">Deferred (TRAI/CBS)</option>
+              <option value="HALTED">Halted (Terminal/MDP)</option>
+            </select>
           </div>
         </div>
 

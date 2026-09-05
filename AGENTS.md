@@ -2,7 +2,7 @@
 
 > **Single Source of Truth (SSOT), Architectural Boundaries & Non-Negotiable Invariants**
 
-[← Back to Master Overview](./README.md) • [Technical Specifications (TECHNICAL.md)](./TECHNICAL.md) • [OpenSpec Roadmap (openspec/README.md)](./openspec/README.md)
+[← Back to Master Overview](./README.md) • [Technical Specifications (docs/TECHNICAL.md)](./docs/TECHNICAL.md) • [OpenSpec Roadmap (openspec/README.md)](./openspec/README.md)
 
 ---
 
