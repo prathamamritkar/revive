@@ -228,7 +228,12 @@ class SentinelDispatcher(IDispatcher, IDispatchHistory):
 
     @property
     def is_live_twilio(self) -> bool:
-        return not self.use_mock and bool(self.account_sid) and not self.account_sid.startswith("ACXXXX")
+        return (
+            not self.use_mock
+            and bool(self.account_sid)
+            and not self.account_sid.startswith("ACXXXX")
+            and not self.account_sid.startswith("AC_YOUR")
+        )
 
     def register_custom_handler(self, handler: BaseChannelHandler, priority_index: Optional[int] = 0) -> None:
         self.handler_registry.register(handler, priority_index)
